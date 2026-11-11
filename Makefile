@@ -20,7 +20,7 @@ ALLOWED_LICENSES := MIT,BSD-2-Clause,BSD-3-Clause,ISC,Apache-2.0,MPL-2.0,0BSD,Un
 
 # Coverage policy (docs/testing.md): statement coverage over internal/...,
 # excluding the test-support package internal/testutil.
-COVER_MIN  ?= 82
+COVER_MIN  ?= 85
 COVER_PKGS := $(shell $(GO) list ./internal/... | grep -v /internal/testutil | paste -sd, -)
 
 FUZZTIME ?= 30s

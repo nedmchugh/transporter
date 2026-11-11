@@ -108,6 +108,15 @@ func (w testWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
+func mustWalk(t *testing.T, sources ...string) *manifest.List {
+	t.Helper()
+	l, err := manifest.Walk(sources)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return l
+}
+
 func runSend(t *testing.T, addr string, sources []string, mod func(*Options)) (*Summary, error) {
 	t.Helper()
 	list, err := manifest.Walk(sources)

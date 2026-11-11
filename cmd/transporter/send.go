@@ -41,16 +41,17 @@ machine in process listings and shell history; prefer the other methods on
 shared machines.
 
 Flags:
-  --to HOST:PORT         connect to this receiver (default: find it on the
-                         local network with mDNS)
-  --code-file PATH       read the code from the first line of PATH ('-' for
-                         stdin)
-  --retry-timeout DUR    keep retrying after network failures for this long
-                         without progress (default 10m0s; 0 disables retries)
-  --verify               compare file contents by hash instead of size and
-                         modification time
-  --no-mdns              do not use mDNS (requires --to)
-  -v, --verbose          more log output (repeat for debug)
+  --to HOST:PORT       connect to this receiver (default "": find it on the
+                       local network with mDNS)
+  --code-file PATH     read the code from the first line of PATH, or stdin
+                       for '-' (default "": not used)
+  --retry-timeout DUR  keep retrying after network failures for this long
+                       without progress (default 10m0s; 0 disables retries)
+  --verify             compare file contents by hash instead of size and
+                       modification time (default false)
+  --no-mdns            do not use mDNS; requires --to (default false)
+  -v, --verbose        more log output; repeat for debug (default: warnings
+                       and errors only)
 `
 
 // CodeEnv is the environment variable holding the code (CODE-8).

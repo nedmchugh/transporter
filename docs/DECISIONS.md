@@ -358,8 +358,8 @@ dependency (and its `testify` dependency tree) for about 60 lines of code.
   `-coverpkg` so integration tests count for the packages they exercise. It
   is enforced by `make cover` (`COVER_MIN`). As the requirements allow, the
   threshold ratchets up by phase: 70% at phase 3 (resume, verify and fault
-  paths not yet tested), 78% at phase 4, 82% at phase 5, raised as later phases add tests,
-  and 85% from phase 8.
+  paths not yet tested), 78% at phase 4, 82% at phase 5, and the full 85% from phase 6
+  onward.
 
 ## 8. Test seams
 

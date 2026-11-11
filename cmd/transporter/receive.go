@@ -31,17 +31,18 @@ one-time code on stdout; give the code to the sender. Exits after one
 successful transfer.
 
 Flags:
-  --port N               TCP port to listen on (default 0: a random free port)
-  --bind ADDR            address to listen on (default: all interfaces, so
-                         senders on the LAN can connect)
-  --overwrite            replace existing files that differ (default: keep them
-                         and report a conflict)
-  --verify               compare file contents by hash instead of size and
-                         modification time
-  --idle-timeout DUR     give up after this long without sender activity
-                         (default 10m0s; 0 waits forever)
-  --no-mdns              do not advertise on the local network
-  -v, --verbose          more log output (repeat for debug)
+  --port N             TCP port to listen on (default 0: a random free port)
+  --bind ADDR          address to listen on (default "": all interfaces, so
+                       senders on the LAN can connect)
+  --overwrite          replace existing files that differ (default false:
+                       keep them and report a conflict)
+  --verify             compare file contents by hash instead of size and
+                       modification time (default false)
+  --idle-timeout DUR   give up after this long without sender activity
+                       (default 10m0s; 0 waits forever)
+  --no-mdns            do not advertise on the local network (default false)
+  -v, --verbose        more log output; repeat for debug (default: warnings
+                       and errors only)
 `
 
 // receiveFlags holds parsed receive options.

@@ -162,7 +162,11 @@ func manifestOf(entries ...proto.Entry) []proto.Message {
 	for _, e := range entries {
 		total += e.Size
 	}
-	return []proto.Message{proto.Manifest{Entries: entries}, proto.ManifestEnd{Count: uint32(len(entries)), TotalBytes: total}}
+	end := proto.ManifestEnd{Count: uint32(len(entries)), TotalBytes: total}
+	if len(entries) == 0 {
+		return []proto.Message{end} // an empty MANIFEST batch is malformed
+	}
+	return []proto.Message{proto.Manifest{Entries: entries}, end}
 }
 
 func fileE(p string, size uint64) proto.Entry {
