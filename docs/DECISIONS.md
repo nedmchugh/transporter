@@ -44,8 +44,16 @@ override earlier ones where they conflict.
 - **Consequence for `golang.org/x` modules:** their newest versions require Go
   1.26 (`go 1.26.0` in their `go.mod`). The last versions that still declare
   Go 1.25 were found from the module proxy and are used: `x/text v0.41.0`,
-  `x/term v0.45.0`, `x/sys v0.47.0`, `x/net v0.58.0`. Dependabot updates that
-  raise the `go` line fail the Go 1.25 CI job; this is intended.
+  `x/term v0.45.0`, `x/sys v0.47.0`, `x/net v0.58.0`, `x/crypto v0.55.0`.
+  Dependabot updates that raise the `go` line fail the Go 1.25 CI job; this
+  is intended.
+- **Observed cost (phase 2):** govulncheck reports GO-2026-6354 and
+  GO-2026-6355 (`x/crypto/ssh` DoS) and GO-2026-5932 (`x/crypto/openpgp`
+  deprecated) in `x/crypto v0.55.0`. The fixes are only in versions that
+  require Go 1.26. Transporter imports neither package, and govulncheck
+  confirms the code does not reach them ("Your code is affected by 0
+  vulnerabilities"), so the `vuln` job passes. This is the main reason the
+  final report recommends raising the minimum to Go 1.26.
 
 ### 1.2 `github.com/flynn/noise` (SEC-1)
 
