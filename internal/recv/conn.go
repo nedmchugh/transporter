@@ -249,7 +249,7 @@ func (c *conn) plan(ctx context.Context) error {
 			sendFiles++
 		}
 	}
-	if avail := freeSpace(c.r.opts.Dest); avail >= 0 && needBytes > uint64(avail) {
+	if avail := diskFree(c.r.opts.Dest); avail >= 0 && needBytes > uint64(avail) {
 		return fail.New(fail.FS,
 			fmt.Sprintf("the destination has %s free, but the transfer needs about %s", progress.Bytes(avail), progress.Bytes(int64(needBytes))),
 			"free some space or choose another destination", errNoSpace)

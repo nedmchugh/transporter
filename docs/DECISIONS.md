@@ -358,7 +358,7 @@ dependency (and its `testify` dependency tree) for about 60 lines of code.
   `-coverpkg` so integration tests count for the packages they exercise. It
   is enforced by `make cover` (`COVER_MIN`). As the requirements allow, the
   threshold ratchets up by phase: 70% at phase 3 (resume, verify and fault
-  paths not yet tested), 78% at phase 4, raised as later phases add tests,
+  paths not yet tested), 78% at phase 4, 82% at phase 5, raised as later phases add tests,
   and 85% from phase 8.
 
 ## 8. Test seams
@@ -367,3 +367,6 @@ dependency (and its `testify` dependency tree) for about 60 lines of code.
   `testCorruptChunk`. It corrupts chunk data *after* it is hashed, to drive
   the XFER-4 mismatch paths. Data inside the authenticated channel cannot be
   corrupted any other way. It is nil in production builds.
+- **D-8.2** A second hook, `testObserveInflight`, reports the in-flight file
+  and byte counts, so tests can show that pipelining happens and stays
+  within its bounds (XFER-6).

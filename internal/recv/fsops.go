@@ -159,6 +159,9 @@ func syncDir(root *os.Root, dir string) error {
 	return err
 }
 
+// diskFree is freeSpace, replaceable by tests of the RCV-9 check.
+var diskFree = freeSpace
+
 // isNoSpace reports whether err means the filesystem is full; that is fatal
 // for the whole transfer (REL-4).
 func isNoSpace(err error) bool {

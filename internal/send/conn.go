@@ -444,6 +444,11 @@ var errChanged = errors.New("changed during transfer")
 // (XFER-4). It is always nil in production.
 var testCorruptChunk func(index uint32, offset uint64, data []byte)
 
+// testObserveInflight, when set by tests, is called with the number of
+// files and bytes awaiting acknowledgment each time a file is completed,
+// so tests can check pipelining and its bounds (XFER-6).
+var testObserveInflight func(files int, bytes uint64)
+
 func readErr(err error) error {
 	var pe *fs.PathError
 	if errors.As(err, &pe) {
@@ -541,6 +546,9 @@ func (c *sconn) sendFile(ctx context.Context, idx uint32, offset uint64, buf []b
 	c.open = false
 	c.awaiting[idx] = it.Size - offset
 	c.inflightBytes += it.Size - offset
+	if testObserveInflight != nil {
+		testObserveInflight(len(c.awaiting), c.inflightBytes)
+	}
 	c.mu.Unlock()
 	if err := c.link.Send(proto.FileEnd{Index: idx, Hash: sum}); err != nil {
 		return netErr("connection lost", err)
