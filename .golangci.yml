@@ -1,0 +1,71 @@
+# golangci-lint v2 configuration (CI-1).
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - gosec
+    - ineffassign
+    - unused
+    - errorlint
+    - gocritic
+    - revive
+    - misspell
+    - bodyclose
+    - nilerr
+    - copyloopvar
+    - unconvert
+  settings:
+    govet:
+      enable-all: true
+      disable:
+        # Field ordering for alignment would fight readability of protocol
+        # structs; memory is not a concern at these sizes.
+        - fieldalignment
+        # Shadowing err in `if _, err := f(); err != nil` is idiomatic Go.
+        - shadow
+    gocritic:
+      enabled-tags: [diagnostic, performance]
+      disabled-checks:
+        # Large structs passed by value are deliberate where they are
+        # immutable snapshots (manifest entries).
+        - hugeParam
+    revive:
+      rules:
+        - name: exported
+        - name: package-comments
+        - name: var-naming
+        - name: indent-error-flow
+        - name: error-strings
+        - name: error-naming
+        - name: receiver-naming
+        - name: unused-parameter
+          disabled: true
+    gosec:
+      excludes:
+        # G115 (integer conversion overflow) is checked explicitly by the
+        # protocol bounds checks; the linter cannot see those guards.
+        - G115
+  exclusions:
+    presets:
+      - std-error-handling
+    rules:
+      - path: _test\.go
+        linters: [gosec, errcheck]
+      - path: internal/testutil/
+        linters: [gosec]
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/OWNER/transporter
