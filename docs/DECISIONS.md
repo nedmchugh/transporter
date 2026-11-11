@@ -173,6 +173,8 @@ and compared word for word with the SPDX copy (`spdx/license-list-data`,
 ## 2. Architecture and package layout
 
 - **D-2.1 Layout** follows DEL-2. Additions:
+  - `internal/fail`: error kinds, exit codes and their precedence (REL-4,
+    CLI-7, CLI-9), shared by sender, receiver and CLI.
   - `internal/proto/link.go`: the shared heartbeat and deadline wrapper around
     a secure connection. Sender and receiver both need it, and it belongs next
     to the message codec.
@@ -299,10 +301,12 @@ and compared word for word with the SPDX copy (`spdx/license-list-data`,
   accepted. This lets a killed-and-restarted sender resume without waiting for
   the idle timeout.
 - **D-5.14 Retry budget (REL-1).** The budget counts time since the first
-  failure in the current run of consecutive failures. Forward progress
-  (receiving an ACK, or completing) resets both the backoff and the budget, so
-  a long transfer on a flaky link isn't killed after 10 minutes of overall
-  runtime.
+  failure in the current run of consecutive failures. Forward progress resets
+  both the backoff and the budget, so a long transfer on a flaky link isn't
+  killed after 10 minutes of overall runtime. Forward progress means
+  receiving an ACK, completing, or sending at least 1 MiB of file data on the
+  connection. The last case covers a single huge file whose connections keep
+  dropping before its FILE_END.
 - **D-5.15 Completion handshake (PROTO-7).** After the sender receives the
   final DONE, it closes the connection. The receiver waits up to 5 s for that
   close before exiting. If the DONE reply itself is lost, the sender retries
@@ -338,5 +342,16 @@ dependency (and its `testify` dependency tree) for about 60 lines of code.
 ## 7. Testing
 
 - **D-7.1 Coverage.** The target is 85% statement coverage on `internal/...`
-  (excluding `internal/testutil`, which is test support). It is enforced by
-  `make cover`. See `testing.md`.
+  (excluding `internal/testutil`, which is test support), measured with
+  `-coverpkg` so integration tests count for the packages they exercise. It
+  is enforced by `make cover` (`COVER_MIN`). As the requirements allow, the
+  threshold ratchets up by phase: 70% at phase 3 (resume, verify and fault
+  paths not yet tested), raised as later phases add tests, and 85% from
+  phase 8.
+
+## 8. Test seams
+
+- **D-8.1** `internal/send` has one unexported, test-only hook,
+  `testCorruptChunk`. It corrupts chunk data *after* it is hashed, to drive
+  the XFER-4 mismatch paths. Data inside the authenticated channel cannot be
+  corrupted any other way. It is nil in production builds.
