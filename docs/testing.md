@@ -221,7 +221,7 @@ repository contents are verified by inspection of the named files.
 | NFR-4 | `test/e2e` TestE2ELargeFile |
 | NFR-5 | Inspection: DECISIONS.md sections 1 and 6 justify each dependency. |
 | NFR-6 | Lint (`revive` exported-comment rule, `errorlint`, `errcheck`) and review. |
-| NFR-7 | Inspection: `internal/meta.Name` is the only use of the name as a name; module path `github.com/OWNER/transporter` (DECISIONS.md D-2.2). |
+| NFR-7 | Inspection: `internal/meta.Name` is the only use of the name as a name; module path `github.com/nedmchugh/transporter` (DECISIONS.md D-2.2, D-2.4). |
 | NFR-8 | Inspection: README "Not affiliated" section; no franchise material in the repository. |
 | TEST-1 | This table; `tools/reqcheck` fails if a MUST requirement is missing from it. |
 | TEST-2 | `internal/proto` TestRoundTrip; `internal/send` TestBackoffSchedule |

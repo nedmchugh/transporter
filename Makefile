@@ -5,7 +5,7 @@ GO            ?= go
 GOBIN         := $(shell $(GO) env GOPATH)/bin
 BIN           := bin/transporter
 VERSION       ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-LDFLAGS       := -s -w -X github.com/OWNER/transporter/internal/meta.Version=$(VERSION)
+LDFLAGS       := -s -w -X github.com/nedmchugh/transporter/internal/meta.Version=$(VERSION)
 
 # Pinned tool versions (see docs/DECISIONS.md, section 1.7).
 GOLANGCI_LINT_VERSION := v2.15.0

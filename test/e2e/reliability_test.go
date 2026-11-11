@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OWNER/transporter/internal/testutil"
+	"github.com/nedmchugh/transporter/internal/testutil"
 )
 
 // TestE2EWrongCode covers TEST-8 scenario 6 (REL-5, CLI-4, CLI-7 exit 3): a wrong

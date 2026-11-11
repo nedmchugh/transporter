@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OWNER/transporter/internal/recv"
-	"github.com/OWNER/transporter/internal/testutil"
+	"github.com/nedmchugh/transporter/internal/recv"
+	"github.com/nedmchugh/transporter/internal/testutil"
 )
 
 // BenchmarkTransfer measures single-file throughput over loopback (NFR-3).

@@ -30,7 +30,7 @@ import (
 
 	"github.com/flynn/noise"
 
-	"github.com/OWNER/transporter/internal/pairing"
+	"github.com/nedmchugh/transporter/internal/pairing"
 )
 
 const (

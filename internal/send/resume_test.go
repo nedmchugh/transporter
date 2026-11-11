@@ -15,9 +15,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/OWNER/transporter/internal/proto"
-	"github.com/OWNER/transporter/internal/recv"
-	"github.com/OWNER/transporter/internal/testutil"
+	"github.com/nedmchugh/transporter/internal/proto"
+	"github.com/nedmchugh/transporter/internal/recv"
+	"github.com/nedmchugh/transporter/internal/testutil"
 )
 
 // copyPrefix writes the first n bytes of src to dst, followed by tail.

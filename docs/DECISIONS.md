@@ -214,6 +214,13 @@ and compared word for word with the SPDX copy (`spdx/license-list-data`,
   dereferences pointers under `%s` through its bad-verb path. A func value is
   only ever printed as an address. Tests cover nested, pointer, slice, JSON,
   gob and slog cases.
+- **D-2.4 Owner filled in (NFR-7, maintainer decision, 2026-11-11).** The
+  maintainer asked for the `OWNER` placeholder to be replaced with their
+  GitHub account, `nedmchugh` (matching the `origin` remote). The module
+  path is now `github.com/nedmchugh/transporter`, and `CODEOWNERS`, the
+  workflows and the docs use it too. Renaming is still one `sed` over
+  `github.com/nedmchugh/`. `docs/requirements.md` keeps `OWNER` because it
+  is the unchanged source specification.
 
 ## 3. Pairing code
 
@@ -457,7 +464,7 @@ dependency (and its `testify` dependency tree) for about 60 lines of code.
   templates do not start with a title.
 - **D-9.2 Contact placeholders.** `SECURITY.md` and `CODE_OF_CONDUCT.md`
   contain `MAINTAINER-CONTACT`, a placeholder for the maintainer's contact
-  address (like `OWNER`).
+  address.
 - **D-9.3 Interrupted runs (REL-7).** Both summaries list "not transferred
   yet" files (capped at 20 lines), in addition to the counts, so an
   interrupted run says what remains.
@@ -471,9 +478,9 @@ dependency (and its `testify` dependency tree) for about 60 lines of code.
 These are for the maintainer to decide or do; the implementer did not
 decide them (requirements section 17).
 
-1. Fill in the copyright holder, the `OWNER` placeholder (module path,
-   `CODEOWNERS`, workflows, docs), and the `MAINTAINER-CONTACT` placeholder
-   (`SECURITY.md`, `CODE_OF_CONDUCT.md`).
+1. Fill in the copyright holder and the `MAINTAINER-CONTACT` placeholder
+   (`SECURITY.md`, `CODE_OF_CONDUCT.md`). The `OWNER` placeholder is done:
+   it is now `nedmchugh` (module path, `CODEOWNERS`, workflows, docs).
 2. Review export-compliance obligations before distributing (LIC-8).
 3. Apply branch protection and repository settings
    (`docs/branch-protection.md`, CI-8), and enable private vulnerability

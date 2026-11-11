@@ -14,7 +14,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/OWNER/transporter/internal/meta"
+	"github.com/nedmchugh/transporter/internal/meta"
 )
 
 // SameVersionHint is the hint for protocol and version errors.

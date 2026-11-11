@@ -26,9 +26,9 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/OWNER/transporter/internal/fail"
-	"github.com/OWNER/transporter/internal/meta"
-	"github.com/OWNER/transporter/internal/progress"
+	"github.com/nedmchugh/transporter/internal/fail"
+	"github.com/nedmchugh/transporter/internal/meta"
+	"github.com/nedmchugh/transporter/internal/progress"
 )
 
 func main() {

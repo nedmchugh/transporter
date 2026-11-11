@@ -13,7 +13,7 @@ import (
 
 	"lukechampine.com/blake3"
 
-	"github.com/OWNER/transporter/internal/testutil"
+	"github.com/nedmchugh/transporter/internal/testutil"
 )
 
 // TestEquivalent checks that pipelined hashing gives the same result as

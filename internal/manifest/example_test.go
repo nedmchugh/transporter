@@ -9,7 +9,7 @@ package manifest_test
 import (
 	"fmt"
 
-	"github.com/OWNER/transporter/internal/manifest"
+	"github.com/nedmchugh/transporter/internal/manifest"
 )
 
 // ValidatePath is applied by the receiver to every manifest path before any

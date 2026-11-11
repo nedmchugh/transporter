@@ -15,7 +15,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/OWNER/transporter/internal/code"
+	"github.com/nedmchugh/transporter/internal/code"
 )
 
 // Service is the DNS-SD service type (DISC-1). It is a wire constant.

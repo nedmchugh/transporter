@@ -26,12 +26,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/OWNER/transporter/internal/fail"
-	"github.com/OWNER/transporter/internal/meta"
-	"github.com/OWNER/transporter/internal/pairing"
-	"github.com/OWNER/transporter/internal/progress"
-	"github.com/OWNER/transporter/internal/proto"
-	"github.com/OWNER/transporter/internal/secure"
+	"github.com/nedmchugh/transporter/internal/fail"
+	"github.com/nedmchugh/transporter/internal/meta"
+	"github.com/nedmchugh/transporter/internal/pairing"
+	"github.com/nedmchugh/transporter/internal/progress"
+	"github.com/nedmchugh/transporter/internal/proto"
+	"github.com/nedmchugh/transporter/internal/secure"
 )
 
 // Defaults (RCV-3, RCV-8, D-5.15).

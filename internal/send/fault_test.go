@@ -16,10 +16,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OWNER/transporter/internal/fail"
-	"github.com/OWNER/transporter/internal/proto"
-	"github.com/OWNER/transporter/internal/recv"
-	"github.com/OWNER/transporter/internal/testutil"
+	"github.com/nedmchugh/transporter/internal/fail"
+	"github.com/nedmchugh/transporter/internal/proto"
+	"github.com/nedmchugh/transporter/internal/recv"
+	"github.com/nedmchugh/transporter/internal/testutil"
 )
 
 // faultDial wraps each connection attempt n with the faults returned by

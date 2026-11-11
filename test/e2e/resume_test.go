@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OWNER/transporter/internal/testutil"
+	"github.com/nedmchugh/transporter/internal/testutil"
 )
 
 const resumeSize = 192 << 20

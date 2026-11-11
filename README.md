@@ -39,7 +39,7 @@ your `PATH`.
 From source (Go 1.26 or newer):
 
 ```console
-go install github.com/OWNER/transporter/cmd/transporter@latest
+go install github.com/nedmchugh/transporter/cmd/transporter@latest
 ```
 
 ## Quick start

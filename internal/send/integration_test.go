@@ -18,13 +18,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OWNER/transporter/internal/code"
-	"github.com/OWNER/transporter/internal/fail"
-	"github.com/OWNER/transporter/internal/manifest"
-	"github.com/OWNER/transporter/internal/pairing"
-	"github.com/OWNER/transporter/internal/proto"
-	"github.com/OWNER/transporter/internal/recv"
-	"github.com/OWNER/transporter/internal/testutil"
+	"github.com/nedmchugh/transporter/internal/code"
+	"github.com/nedmchugh/transporter/internal/fail"
+	"github.com/nedmchugh/transporter/internal/manifest"
+	"github.com/nedmchugh/transporter/internal/pairing"
+	"github.com/nedmchugh/transporter/internal/proto"
+	"github.com/nedmchugh/transporter/internal/recv"
+	"github.com/nedmchugh/transporter/internal/testutil"
 )
 
 const testCode = "abandon-ability-able-about-above-absent-absorb-abstract-absurd"

@@ -18,15 +18,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OWNER/transporter/internal/code"
-	"github.com/OWNER/transporter/internal/discover"
-	"github.com/OWNER/transporter/internal/fail"
-	"github.com/OWNER/transporter/internal/manifest"
-	"github.com/OWNER/transporter/internal/meta"
-	"github.com/OWNER/transporter/internal/pairing"
-	"github.com/OWNER/transporter/internal/progress"
-	"github.com/OWNER/transporter/internal/proto"
-	"github.com/OWNER/transporter/internal/send"
+	"github.com/nedmchugh/transporter/internal/code"
+	"github.com/nedmchugh/transporter/internal/discover"
+	"github.com/nedmchugh/transporter/internal/fail"
+	"github.com/nedmchugh/transporter/internal/manifest"
+	"github.com/nedmchugh/transporter/internal/meta"
+	"github.com/nedmchugh/transporter/internal/pairing"
+	"github.com/nedmchugh/transporter/internal/progress"
+	"github.com/nedmchugh/transporter/internal/proto"
+	"github.com/nedmchugh/transporter/internal/send"
 )
 
 const sendUsage = `Usage: %[1]s send [flags] [CODE] PATH...

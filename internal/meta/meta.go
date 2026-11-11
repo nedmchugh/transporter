@@ -16,5 +16,5 @@ package meta
 const Name = "transporter"
 
 // Version is the release version. It is set at build time with
-// -ldflags "-X github.com/OWNER/transporter/internal/meta.Version=v1.2.3".
+// -ldflags "-X github.com/nedmchugh/transporter/internal/meta.Version=v1.2.3".
 var Version = "dev"

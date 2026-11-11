@@ -16,7 +16,7 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/unicode/norm"
 
-	"github.com/OWNER/transporter/internal/proto"
+	"github.com/nedmchugh/transporter/internal/proto"
 )
 
 // ErrInvalidPath is wrapped by every path validation error.

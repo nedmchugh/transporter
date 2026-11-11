@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OWNER/transporter/internal/fail"
-	"github.com/OWNER/transporter/internal/recv"
-	"github.com/OWNER/transporter/internal/testutil"
+	"github.com/nedmchugh/transporter/internal/fail"
+	"github.com/nedmchugh/transporter/internal/recv"
+	"github.com/nedmchugh/transporter/internal/testutil"
 )
 
 var baseTime = time.Date(2024, 5, 6, 7, 8, 9, 0, time.UTC)

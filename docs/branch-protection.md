@@ -48,10 +48,10 @@ change too; update the protection rule at the same time.
 
 ## Applying with `gh`
 
-Replace `OWNER` with the repository owner, then run:
+Run:
 
 ```sh
-gh api -X PUT repos/OWNER/transporter/branches/main/protection \
+gh api -X PUT repos/nedmchugh/transporter/branches/main/protection \
   -H "Accept: application/vnd.github+json" --input - <<'JSON'
 {
   "required_status_checks": {
@@ -95,5 +95,5 @@ JSON
 Private vulnerability reporting can be enabled with:
 
 ```sh
-gh api -X PUT repos/OWNER/transporter/private-vulnerability-reporting
+gh api -X PUT repos/nedmchugh/transporter/private-vulnerability-reporting
 ```

@@ -18,9 +18,9 @@ import (
 
 	"lukechampine.com/blake3"
 
-	"github.com/OWNER/transporter/internal/fail"
-	"github.com/OWNER/transporter/internal/hashpipe"
-	"github.com/OWNER/transporter/internal/proto"
+	"github.com/nedmchugh/transporter/internal/fail"
+	"github.com/nedmchugh/transporter/internal/hashpipe"
+	"github.com/nedmchugh/transporter/internal/proto"
 )
 
 // sconn is the state of one connection. A reader goroutine records NEED,

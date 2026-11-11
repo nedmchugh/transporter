@@ -18,7 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/OWNER/transporter/internal/proto"
+	"github.com/nedmchugh/transporter/internal/proto"
 )
 
 // Default render intervals.

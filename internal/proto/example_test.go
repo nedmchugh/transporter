@@ -9,7 +9,7 @@ package proto_test
 import (
 	"fmt"
 
-	"github.com/OWNER/transporter/internal/proto"
+	"github.com/nedmchugh/transporter/internal/proto"
 )
 
 // Messages are encoded with Append and parsed with Decode; one message

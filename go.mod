@@ -1,7 +1,4 @@
-// OWNER is a placeholder for the GitHub account or organization that will
-// host the project. Replace it everywhere with:
-//   grep -rl 'github.com/OWNER/transporter' . | xargs sed -i 's#github.com/OWNER/#github.com/<owner>/#'
-module github.com/OWNER/transporter
+module github.com/nedmchugh/transporter
 
 go 1.26.0
 

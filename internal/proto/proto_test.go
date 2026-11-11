@@ -19,8 +19,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OWNER/transporter/internal/secure"
-	"github.com/OWNER/transporter/internal/testutil"
+	"github.com/nedmchugh/transporter/internal/secure"
+	"github.com/nedmchugh/transporter/internal/testutil"
 )
 
 func sampleMessages() []Message {

@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OWNER/transporter/internal/discover"
-	"github.com/OWNER/transporter/internal/testutil"
+	"github.com/nedmchugh/transporter/internal/discover"
+	"github.com/nedmchugh/transporter/internal/testutil"
 )
 
 // multicastWorks checks whether mDNS works here at all (DISC-5).

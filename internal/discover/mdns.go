@@ -23,7 +23,7 @@ import (
 
 	"github.com/hashicorp/mdns"
 
-	"github.com/OWNER/transporter/internal/code"
+	"github.com/nedmchugh/transporter/internal/code"
 )
 
 // MDNS implements Advertiser and Browser with github.com/hashicorp/mdns

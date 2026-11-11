@@ -21,11 +21,11 @@ import (
 
 	"lukechampine.com/blake3"
 
-	"github.com/OWNER/transporter/internal/fail"
-	"github.com/OWNER/transporter/internal/hashpipe"
-	"github.com/OWNER/transporter/internal/manifest"
-	"github.com/OWNER/transporter/internal/progress"
-	"github.com/OWNER/transporter/internal/proto"
+	"github.com/nedmchugh/transporter/internal/fail"
+	"github.com/nedmchugh/transporter/internal/hashpipe"
+	"github.com/nedmchugh/transporter/internal/manifest"
+	"github.com/nedmchugh/transporter/internal/progress"
+	"github.com/nedmchugh/transporter/internal/proto"
 )
 
 // Per-file connection state (PROTO-4). Transitions:

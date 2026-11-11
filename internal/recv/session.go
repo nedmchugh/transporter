@@ -13,7 +13,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/OWNER/transporter/internal/proto"
+	"github.com/nedmchugh/transporter/internal/proto"
 )
 
 // outcome is the settled result for one entry within a session.

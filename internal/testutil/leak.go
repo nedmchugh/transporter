@@ -19,7 +19,7 @@ import (
 )
 
 // modulePrefix identifies goroutines created by this project's code.
-const modulePrefix = "github.com/OWNER/transporter/"
+const modulePrefix = "github.com/nedmchugh/transporter/"
 
 // CheckLeaks records the goroutines running now and, when the test ends,
 // fails it if goroutines created by this module's code (outside the test

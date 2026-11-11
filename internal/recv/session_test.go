@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OWNER/transporter/internal/proto"
-	"github.com/OWNER/transporter/internal/secure"
-	"github.com/OWNER/transporter/internal/testutil"
+	"github.com/nedmchugh/transporter/internal/proto"
+	"github.com/nedmchugh/transporter/internal/secure"
+	"github.com/nedmchugh/transporter/internal/testutil"
 )
 
 // TestBusy covers RCV-5 and D-5.13: a different session_id is refused with

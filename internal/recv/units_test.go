@@ -17,9 +17,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OWNER/transporter/internal/fail"
-	"github.com/OWNER/transporter/internal/proto"
-	"github.com/OWNER/transporter/internal/testutil"
+	"github.com/nedmchugh/transporter/internal/fail"
+	"github.com/nedmchugh/transporter/internal/proto"
+	"github.com/nedmchugh/transporter/internal/testutil"
 )
 
 // TestResumeOffset covers RES-3 and TREE-5: rounding down to a chunk

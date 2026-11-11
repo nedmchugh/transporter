@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OWNER/transporter/internal/fail"
-	"github.com/OWNER/transporter/internal/testutil"
+	"github.com/nedmchugh/transporter/internal/fail"
+	"github.com/nedmchugh/transporter/internal/testutil"
 )
 
 // TestBackoffSchedule covers REL-1 and TEST-2: base 1 s, factor 2, cap 30 s,

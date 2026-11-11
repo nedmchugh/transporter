@@ -10,8 +10,8 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/OWNER/transporter/internal/code"
-	"github.com/OWNER/transporter/internal/discover"
+	"github.com/nedmchugh/transporter/internal/code"
+	"github.com/nedmchugh/transporter/internal/discover"
 )
 
 // advertise announces the receiver via mDNS until ctx ends; the returned

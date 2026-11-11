@@ -18,8 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OWNER/transporter/internal/code"
-	"github.com/OWNER/transporter/internal/fail"
+	"github.com/nedmchugh/transporter/internal/code"
+	"github.com/nedmchugh/transporter/internal/fail"
 )
 
 const validCode = "abandon-ability-able-about-above-absent-absorb-abstract-absurd"

@@ -21,7 +21,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/OWNER/transporter/internal/code"
+	"github.com/nedmchugh/transporter/internal/code"
 )
 
 // Role says which side of the connection a Pairer is acting for.

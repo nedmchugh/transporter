@@ -14,8 +14,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/OWNER/transporter/internal/proto"
-	"github.com/OWNER/transporter/internal/testutil"
+	"github.com/nedmchugh/transporter/internal/proto"
+	"github.com/nedmchugh/transporter/internal/testutil"
 )
 
 // hostilePaths is the TEST-5 corpus of wire paths that must be rejected by

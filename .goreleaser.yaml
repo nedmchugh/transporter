@@ -18,7 +18,7 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      - -s -w -X github.com/OWNER/transporter/internal/meta.Version={{ .Version }}
+      - -s -w -X github.com/nedmchugh/transporter/internal/meta.Version={{ .Version }}
     mod_timestamp: "{{ .CommitTimestamp }}"
 
 archives:

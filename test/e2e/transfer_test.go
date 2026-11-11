@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OWNER/transporter/internal/testutil"
+	"github.com/nedmchugh/transporter/internal/testutil"
 )
 
 // TestE2ESingleFile covers TEST-8 scenario 1 (single file), RCV-2, RCV-6

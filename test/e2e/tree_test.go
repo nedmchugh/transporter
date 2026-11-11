@@ -18,11 +18,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OWNER/transporter/internal/code"
-	"github.com/OWNER/transporter/internal/pairing"
-	"github.com/OWNER/transporter/internal/proto"
-	"github.com/OWNER/transporter/internal/secure"
-	"github.com/OWNER/transporter/internal/testutil"
+	"github.com/nedmchugh/transporter/internal/code"
+	"github.com/nedmchugh/transporter/internal/pairing"
+	"github.com/nedmchugh/transporter/internal/proto"
+	"github.com/nedmchugh/transporter/internal/secure"
+	"github.com/nedmchugh/transporter/internal/testutil"
 )
 
 // TestE2ETree covers TEST-8 scenario 2: nested tree with empty directories,

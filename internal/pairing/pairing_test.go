@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/OWNER/transporter/internal/code"
+	"github.com/nedmchugh/transporter/internal/code"
 )
 
 const sample = "abandon-ability-able-about-above-absent-absorb-abstract-absurd"

@@ -20,7 +20,7 @@ import (
 
 	"lukechampine.com/blake3"
 
-	"github.com/OWNER/transporter/internal/proto"
+	"github.com/nedmchugh/transporter/internal/proto"
 )
 
 // All filesystem access to the destination goes through *os.Root (SEC-9).
