@@ -77,6 +77,11 @@ func TestClassification(t *testing.T) {
 			t.Errorf("Transient(%v) = %v", tc.err, got)
 		}
 	}
+	final := New(Network, "discovery failed", "", nil)
+	final.Final = true
+	if Transient(final) || KindOf(final).ExitCode() != 4 {
+		t.Fatal("final network error must not be retried but still exit 4")
+	}
 	e := New(Auth, "authentication failed", "check the code", base)
 	if e.Error() != "authentication failed: reset" || !errors.Is(e, base) || HintOf(fmt.Errorf("x: %w", e)) != "check the code" {
 		t.Fatal(e.Error())

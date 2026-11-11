@@ -332,6 +332,28 @@ and compared word for word with the SPDX copy (`spdx/license-list-data`,
   sender runs the same check before connecting, to fail early with a clear
   message.
 
+## 5b. Discovery
+
+- **D-5b.1 mDNS records.** Service `_transporter._tcp.local.`, a random
+  instance name (`transfer-<8 hex>`, revealing nothing about the user), the
+  host name, the port, and TXT `tag=<8 hex>` and `v=1`. The sender queries
+  once per second until the 5 s timeout and takes the first answer with its
+  tag (DISC-2).
+- **D-5b.2 Discovery failure is final.** A failed discovery exits 4 with a
+  hint to use `--to` (DISC-3) and is not retried. Once a receiver has been
+  found, reconnects reuse its address without discovering again, so a lost
+  multicast packet cannot end a transfer that is already running. A receiver
+  that changes IP address mid-transfer needs a rerun (documented).
+- **D-5b.3 Spoofed answers.** Anyone on the LAN can answer mDNS queries. A
+  spoofed answer can only make the sender connect to a peer that cannot
+  complete the handshake (reported as an authentication failure). That peer
+  receives handshake message 1, which allows an offline guessing attack
+  against at least 88 bits of code entropy. See `security.md`.
+- **D-5b.4 Verification limits.** On the development machine, firewalld
+  blocks inbound UDP 5353, so live multicast tests skip as DISC-5 allows.
+  Record construction and answer matching are unit-tested without the
+  network. The live tests run wherever multicast works.
+
 ## 6. Dependencies (NFR-5)
 
 | Module | License | Why the standard library is not enough |
@@ -346,6 +368,13 @@ and compared word for word with the SPDX copy (`spdx/license-list-data`,
 | golang.org/x/text | BSD-3-Clause | NFC normalization and case folding (TREE-9). |
 | golang.org/x/term | BSD-3-Clause | No-echo code prompt and terminal detection (CODE-8, CLI-2). |
 | golang.org/x/sys | BSD-3-Clause | Required by x/term; also free-space query (RCV-9). |
+
+Verified with `go-licenses report ./cmd/transporter` (phase 7). The binary's
+dependency closure is noise (BSD-3-Clause), hashicorp/mdns (MIT),
+klauspost/cpuid/v2 (MIT), miekg/dns (BSD-3-Clause), x/crypto, x/net, x/sys,
+x/term and x/text (BSD-3-Clause), and blake3 (MIT). All are on the LIC-3
+allowlist. `golang.org/x/sync` appears in `go.mod` only as a requirement of
+miekg/dns and is not compiled into the binary.
 
 The goroutine leak check (TEST-6) is a small in-repo helper
 (`internal/testutil/leak.go`), not `go.uber.org/goleak`. That avoids a test

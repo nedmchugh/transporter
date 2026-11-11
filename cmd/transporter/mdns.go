@@ -15,13 +15,20 @@ import (
 )
 
 // advertise announces the receiver via mDNS until ctx ends; the returned
-// function stops it. Failures only disable discovery (the sender can still
-// use --to), so they are logged, not fatal.
+// function stops it. Failure only disables discovery (the sender can still
+// use --to), so it is logged as a warning, not fatal.
 func advertise(ctx context.Context, port int, tag [code.TagSize]byte, log *slog.Logger) func() {
-	return func() {}
+	var adv discover.Advertiser = discover.MDNS{Logger: log}
+	c, err := adv.Advertise(ctx, port, tag)
+	if err != nil {
+		log.Warn("mDNS advertisement failed; senders must use --to", "err", err)
+		return func() {}
+	}
+	return func() { _ = c.Close() }
 }
 
-// browse finds a receiver advertising tag (DISC-2).
-func browse(ctx context.Context, tag [code.TagSize]byte) (string, error) {
-	return "", discover.ErrNotFound
+// browse finds a receiver advertising tag (DISC-2, DISC-3).
+func browse(ctx context.Context, tag [code.TagSize]byte, log *slog.Logger) (string, error) {
+	var b discover.Browser = discover.MDNS{Logger: log}
+	return b.Find(ctx, tag, discover.DefaultTimeout)
 }

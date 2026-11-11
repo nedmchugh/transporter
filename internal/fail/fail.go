@@ -104,6 +104,9 @@ type Error struct {
 	Hint string
 	// Err is the underlying cause, if any.
 	Err error
+	// Final marks an error of a normally transient kind that must not be
+	// retried, such as failed discovery (DISC-3).
+	Final bool
 }
 
 // New returns an *Error.
@@ -151,5 +154,9 @@ func HintOf(err error) string {
 
 // Transient reports whether err should be retried by the sender (REL-4).
 func Transient(err error) bool {
+	var fe *Error
+	if errors.As(err, &fe) && fe.Final {
+		return false
+	}
 	return KindOf(err) == Network
 }

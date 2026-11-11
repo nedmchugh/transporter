@@ -124,6 +124,14 @@ type sender struct {
 	items     []manifest.Item
 	sessionID [proto.SessionIDSize]byte
 
+	// connected records whether any connection got past the handshake,
+	// which changes the most useful hint on failure (CLI-4).
+	connected bool
+
+	// resolved caches the discovered address: reconnects go to the same
+	// receiver without repeating discovery, which could fail transiently.
+	resolved string
+
 	mu    sync.Mutex
 	files []fileState
 	bytes int64
@@ -201,14 +209,17 @@ func (s *sender) retryLoop(ctx context.Context) (*proto.Done, int, error) {
 		}
 		left := s.opts.RetryTimeout - now.Sub(streakStart)
 		if left <= 0 {
+			hint := "check that the receiver is still running and reachable, or raise --retry-timeout"
+			if !s.connected {
+				hint = "check that the receiver is running and that the address matches one it printed; a firewall may be blocking the port"
+			}
 			return nil, retries, fail.New(fail.Network,
-				fmt.Sprintf("gave up after retrying for %v", s.opts.RetryTimeout.Round(time.Second)),
-				"check that the receiver is still running and reachable, or raise --retry-timeout", err)
+				fmt.Sprintf("gave up after retrying for %v", s.opts.RetryTimeout.Round(time.Second)), hint, err)
 		}
 		wait := min(bo.Delay(failures), left)
 		failures++
 		retries++
-		s.opts.Progress.Notef("connection problem: %v; retrying in %v", err, wait.Round(100*time.Millisecond))
+		s.opts.Progress.Notef("connection problem: %v; retrying in %.1fs", err, wait.Seconds())
 		s.log.Info("retrying", "attempt", retries, "wait", wait, "err", err)
 		if err := sleep(ctx, wait); err != nil {
 			return nil, retries, fail.New(fail.Interrupted, "interrupted", "run the same command again to resume", nil)
@@ -228,6 +239,9 @@ func netErr(what string, err error) error {
 func (s *sender) attempt(ctx context.Context) (done *proto.Done, progressed bool, err error) {
 	addr := s.opts.Addr
 	if addr == "" {
+		addr = s.resolved
+	}
+	if addr == "" {
 		if s.opts.Resolve == nil {
 			return nil, false, fail.New(fail.Usage, "no receiver address", "use --to HOST:PORT", nil)
 		}
@@ -235,6 +249,7 @@ func (s *sender) attempt(ctx context.Context) (done *proto.Done, progressed bool
 		if err != nil {
 			return nil, false, err
 		}
+		s.resolved = addr
 	}
 	dial := s.opts.Dial
 	if dial == nil {
@@ -255,6 +270,7 @@ func (s *sender) attempt(ctx context.Context) (done *proto.Done, progressed bool
 		}
 		return nil, false, fail.New(fail.Network, "connection lost during the handshake", "", err)
 	}
+	s.connected = true
 	link := proto.NewLink(sc, s.opts.Link)
 	defer func() { _ = link.Close() }()
 	stop := context.AfterFunc(ctx, func() { _ = link.Close() })

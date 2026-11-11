@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/OWNER/transporter/internal/code"
+	"github.com/OWNER/transporter/internal/discover"
 	"github.com/OWNER/transporter/internal/fail"
 	"github.com/OWNER/transporter/internal/manifest"
 	"github.com/OWNER/transporter/internal/meta"
@@ -216,17 +217,19 @@ func runSend(ctx context.Context, args []string, verbose int, env *environment) 
 		RetryTimeout: f.retryTimeout, Logger: log, Progress: prog,
 	}
 	if f.to == "" {
+		// DISC-4: --to always takes precedence; discovery is only the
+		// fallback when no address was given.
 		tag := pairer.DiscoveryTag()
 		opts.Resolve = func(ctx context.Context) (string, error) {
-			addr, err := browse(ctx, tag)
+			addr, err := browse(ctx, tag, log)
 			if err != nil {
 				// DISC-3: point at --to and at the usual cause.
-				return "", fail.New(fail.Network, "could not find the receiver on the local network",
+				fe := fail.New(fail.Network, fmt.Sprintf("could not find the receiver on the local network within %v", discover.DefaultTimeout),
 					"use --to HOST:PORT with an address the receiver printed; mDNS is often blocked on guest and corporate networks", err)
+				fe.Final = true // DISC-3: fail, do not retry discovery
+				return "", fe
 			}
 			log.Info("found receiver", "addr", addr)
-			// Remember it, so reconnects do not need discovery.
-			opts.Addr = addr
 			return addr, nil
 		}
 	}

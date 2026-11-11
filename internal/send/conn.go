@@ -284,6 +284,7 @@ func (c *sconn) onAck(m proto.Ack) error {
 	case proto.AckOK:
 		s.setOutcome(m.Index, oTransferred, "")
 		s.bytes += int64(n)
+		s.log.Debug("file acknowledged", "path", path, "bytes", n)
 	case proto.AckMismatch:
 		f.attempts++
 		if f.attempts < 2 {

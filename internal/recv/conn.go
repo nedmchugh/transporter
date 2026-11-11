@@ -778,6 +778,7 @@ func (c *conn) finalize(of *openFile) (proto.Ack, error) {
 	c.mu.Unlock()
 	settle(oTransferred, 0)
 	c.prog.FileDone()
+	c.r.log.Debug("file received", "path", proto.Printable(e.Path), "bytes", e.Size-of.start, "from", of.start)
 	return proto.Ack{Index: idx, Status: proto.AckOK}, nil
 }
 
