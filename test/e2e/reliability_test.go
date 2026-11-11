@@ -20,7 +20,7 @@ import (
 	"github.com/OWNER/transporter/internal/testutil"
 )
 
-// TestE2EWrongCode covers TEST-8 scenario 6 (REL-5, CLI-7 exit 3): a wrong
+// TestE2EWrongCode covers TEST-8 scenario 6 (REL-5, CLI-4, CLI-7 exit 3): a wrong
 // code fails fast with exit 3 and writes nothing.
 func TestE2EWrongCode(t *testing.T) {
 	t.Parallel()
@@ -47,7 +47,8 @@ func TestE2EWrongCode(t *testing.T) {
 	}
 }
 
-// TestE2ETimeouts covers TEST-8 scenario 9 (RCV-7, REL-1, CLI-7 exit 4):
+// TestE2ETimeouts covers TEST-8 scenario 9 (RCV-7, REL-1, CLI-4, CLI-7
+// exit 4):
 // idle timeout on the receiver and retry-budget expiry on the sender.
 func TestE2ETimeouts(t *testing.T) {
 	t.Parallel()
@@ -253,7 +254,7 @@ func TestE2ESignals(t *testing.T) {
 				if code := exitCode(cmd.Wait()); code != 130 {
 					t.Fatalf("sender exit %d\n%s", code, errb)
 				}
-				if !strings.Contains(errb.String(), "Summary:") || !strings.Contains(errb.String(), "interrupted") {
+				if !strings.Contains(errb.String(), "Summary:") || !strings.Contains(errb.String(), "interrupted") || !strings.Contains(errb.String(), "Not transferred yet") {
 					t.Fatalf("sender output:\n%s", errb)
 				}
 				_ = r.cmd.Process.Signal(os.Interrupt)

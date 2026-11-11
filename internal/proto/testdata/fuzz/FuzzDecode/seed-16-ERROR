@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("\r\x00\x03\x01\x00=protocol version mismatch: receiver speaks 1, sender speaks 2")

@@ -89,6 +89,10 @@ func (s *session) fill(sum *Summary) {
 			sum.Errors = append(sum.Errors, FileIssue{Path: e.Path, Code: s.codes[uint32(i)]})
 		case oIntegrity:
 			sum.Integrity = append(sum.Integrity, e.Path)
+		case oNone:
+			if e.Type == proto.EntryFile {
+				sum.NotTransferred = append(sum.NotTransferred, e.Path)
+			}
 		}
 	}
 }

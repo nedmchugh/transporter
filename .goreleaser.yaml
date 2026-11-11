@@ -1,0 +1,44 @@
+# GoReleaser configuration (CI-3). Run by .github/workflows/release.yml.
+version: 2
+
+project_name: transporter
+
+before:
+  hooks:
+    - go mod verify
+
+builds:
+  - id: transporter
+    main: ./cmd/transporter
+    binary: transporter
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X github.com/OWNER/transporter/internal/meta.Version={{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    # LIC-6: license texts ship in every archive.
+    files:
+      - LICENSE
+      - THIRD_PARTY_LICENSES
+      - README.md
+      - CHANGELOG.md
+
+checksum:
+  name_template: checksums.txt
+
+release:
+  draft: true
+  replace_existing_draft: true
+
+changelog:
+  use: git

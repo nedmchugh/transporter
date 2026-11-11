@@ -221,4 +221,5 @@ func printReceiveSummary(env *environment, s *recv.Summary) {
 	list(w, "Errors", errs)
 	list(w, "Integrity failures (hash mismatch after retransmission)", s.Integrity)
 	list(w, "Partial files not part of this transfer (left untouched)", s.StrayParts)
+	list(w, "Not received yet (rerun the sender to resume)", s.NotTransferred)
 }

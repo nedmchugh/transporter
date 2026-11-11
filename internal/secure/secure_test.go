@@ -7,6 +7,7 @@
 package secure
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/binary"
@@ -315,7 +316,8 @@ func readWire(r io.Reader) ([]byte, error) {
 	return buf, err
 }
 
-// TestFrameTampering covers SEC-7 and TEST-3: tampered, replayed and
+// TestFrameTampering covers SEC-7, TEST-3 and SEC-6 (replays and reorders
+// are caught by the library's nonce counters alone): tampered, replayed and
 // reordered frames fail authentication and terminate the connection.
 func TestFrameTampering(t *testing.T) {
 	testutil.CheckLeaks(t)
@@ -593,7 +595,8 @@ func FuzzReadFrame(f *testing.F) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		c := &Conn{raw: &bufConn{Reader: bytes.NewReader(data)}, rbuf: make([]byte, MaxFrame), dec: dec}
+		raw := &bufConn{Reader: bytes.NewReader(data)}
+		c := &Conn{raw: raw, br: bufio.NewReader(raw), rbuf: make([]byte, MaxFrame), dec: dec}
 		for range 4 {
 			if _, err := c.ReadFrame(); err == nil {
 				t.Fatal("random bytes authenticated")

@@ -47,10 +47,13 @@ func realMain() int {
 		stderr: os.Stderr,
 		getenv: os.Getenv,
 		isTerminal: func(f any) bool {
-			if fd, ok := f.(interface{ Fd() uintptr }); ok {
-				return term.IsTerminal(int(fd.Fd()))
+			fd, ok := f.(interface{ Fd() uintptr })
+			if !ok || !term.IsTerminal(int(fd.Fd())) {
+				return false
 			}
-			return false
+			// The status line uses ANSI escapes; where the console cannot
+			// interpret them (old Windows consoles), use plain output.
+			return enableVT(fd.Fd())
 		},
 		readPassword: func() (string, error) {
 			b, err := term.ReadPassword(int(os.Stdin.Fd()))

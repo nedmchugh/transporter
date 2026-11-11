@@ -1,0 +1,99 @@
+# Branch protection
+
+The implementer cannot change repository settings. The maintainer should
+apply the settings below to `main` (CI-8; maintainer open item 3).
+
+## Required status checks
+
+These are the exact check names produced by the workflows. Keep this list
+in sync with job names in `.github/workflows/`.
+
+| Workflow | Check name |
+| --- | --- |
+| ci | `lint` |
+| ci | `test (ubuntu-latest, go 1.25.x)` |
+| ci | `test (ubuntu-latest, go 1.27.x)` |
+| ci | `test (macos-latest, go 1.25.x)` |
+| ci | `test (macos-latest, go 1.27.x)` |
+| ci | `test (windows-latest, go 1.25.x)` |
+| ci | `test (windows-latest, go 1.27.x)` |
+| ci | `e2e (ubuntu-latest)` |
+| ci | `e2e (macos-latest)` |
+| ci | `e2e (windows-latest)` |
+| ci | `fuzz-smoke` |
+| ci | `vuln` |
+| ci | `license` |
+| ci | `build` |
+| ci | `mod-tidy` |
+| ci | `docs` |
+| codeql | `codeql` |
+| dependency-review | `dependency-review` |
+
+When the minimum or latest Go version changes, the `test` check names
+change too; update the protection rule at the same time.
+
+## Recommended settings for `main`
+
+- Require a pull request before merging, with at least one approving
+  review, dismissal of stale approvals, and review from code owners.
+- Require the status checks above to pass, and require branches to be up to
+  date before merging.
+- Require conversation resolution before merging.
+- Require linear history.
+- Do not allow force pushes or deletions.
+- Apply the rules to administrators too.
+- In repository settings, enable private vulnerability reporting (used by
+  `SECURITY.md`), Dependabot alerts and security updates, and secret
+  scanning.
+
+## Applying with `gh`
+
+Replace `OWNER` with the repository owner, then run:
+
+```sh
+gh api -X PUT repos/OWNER/transporter/branches/main/protection \
+  -H "Accept: application/vnd.github+json" --input - <<'JSON'
+{
+  "required_status_checks": {
+    "strict": true,
+    "checks": [
+      {"context": "lint"},
+      {"context": "test (ubuntu-latest, go 1.25.x)"},
+      {"context": "test (ubuntu-latest, go 1.27.x)"},
+      {"context": "test (macos-latest, go 1.25.x)"},
+      {"context": "test (macos-latest, go 1.27.x)"},
+      {"context": "test (windows-latest, go 1.25.x)"},
+      {"context": "test (windows-latest, go 1.27.x)"},
+      {"context": "e2e (ubuntu-latest)"},
+      {"context": "e2e (macos-latest)"},
+      {"context": "e2e (windows-latest)"},
+      {"context": "fuzz-smoke"},
+      {"context": "vuln"},
+      {"context": "license"},
+      {"context": "build"},
+      {"context": "mod-tidy"},
+      {"context": "docs"},
+      {"context": "codeql"},
+      {"context": "dependency-review"}
+    ]
+  },
+  "enforce_admins": true,
+  "required_pull_request_reviews": {
+    "required_approving_review_count": 1,
+    "dismiss_stale_reviews": true,
+    "require_code_owner_reviews": true
+  },
+  "restrictions": null,
+  "required_linear_history": true,
+  "required_conversation_resolution": true,
+  "allow_force_pushes": false,
+  "allow_deletions": false
+}
+JSON
+```
+
+Private vulnerability reporting can be enabled with:
+
+```sh
+gh api -X PUT repos/OWNER/transporter/private-vulnerability-reporting
+```

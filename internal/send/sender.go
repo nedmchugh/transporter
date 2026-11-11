@@ -81,8 +81,11 @@ type Summary struct {
 	Errors      []FileIssue
 	Integrity   []string
 	Warnings    []string
-	Retries     int
-	Elapsed     time.Duration
+	// NotTransferred lists files with no outcome yet, for example after an
+	// interruption (REL-7).
+	NotTransferred []string
+	Retries        int
+	Elapsed        time.Duration
 	// Receiver holds the receiver's totals from its final DONE (PROTO-7),
 	// or nil if the session did not complete.
 	Receiver *proto.Done
@@ -312,6 +315,10 @@ func (s *sender) summary() *Summary {
 			sum.Errors = append(sum.Errors, FileIssue{Path: it.Path, Msg: f.msg})
 		case oIntegrity:
 			sum.Integrity = append(sum.Integrity, it.Path)
+		case oNone:
+			if it.Type == proto.EntryFile {
+				sum.NotTransferred = append(sum.NotTransferred, it.Path)
+			}
 		}
 	}
 	return sum

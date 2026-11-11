@@ -26,7 +26,7 @@ import (
 )
 
 // TestE2ETree covers TEST-8 scenario 2: nested tree with empty directories,
-// about 5000 small files, Unicode names and spaces (TREE-4, XFER-6).
+// about 5000 small files, Unicode names and spaces (TREE-4, XFER-6, TEST-10).
 func TestE2ETree(t *testing.T) {
 	t.Parallel()
 	src, dst := t.TempDir(), t.TempDir()

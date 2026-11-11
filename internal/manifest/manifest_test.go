@@ -124,7 +124,8 @@ func TestCheckerCollisions(t *testing.T) {
 	}
 }
 
-// TestCheckerStructure covers D-5.10, TREE-6 and TREE-11.
+// TestCheckerStructure covers D-5.10, TREE-6, TREE-11 and TREE-12 (limits
+// bound the checker's O(entries) memory).
 func TestCheckerStructure(t *testing.T) {
 	c := NewChecker()
 	for _, e := range []proto.Entry{dir("d"), file("d/f"), dir("d/e"), file("d/e/g"), file("top")} {

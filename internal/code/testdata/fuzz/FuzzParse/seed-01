@@ -1,0 +1,2 @@
+go test fuzz v1
+string("ABAN abil able abou abov abse abso abst absu")

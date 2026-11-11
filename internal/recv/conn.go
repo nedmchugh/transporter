@@ -14,6 +14,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"lukechampine.com/blake3"
 
 	"github.com/OWNER/transporter/internal/fail"
+	"github.com/OWNER/transporter/internal/hashpipe"
 	"github.com/OWNER/transporter/internal/manifest"
 	"github.com/OWNER/transporter/internal/progress"
 	"github.com/OWNER/transporter/internal/proto"
@@ -69,13 +71,22 @@ type fileInfo struct {
 type openFile struct {
 	index  uint32
 	entry  proto.Entry
-	f      *os.File // nil when writes failed and data is being discarded
-	h      *blake3.Hasher
-	next   uint64 // next expected offset
+	f      *os.File       // nil when writes failed and data is being discarded
+	hp     *hashpipe.Pipe // hashes data as it is written; nil when f is nil
+	next   uint64         // next expected offset
 	start  uint64
 	err    proto.Code // per-file error while receiving, or CodeOK
 	want   [proto.HashSize]byte
 	create bool // the final name was absent at planning time
+}
+
+// stopHash stops the file's hashing goroutine. Every path that ends an
+// openFile calls it, so no helper goroutine outlives its file (REL-6).
+func (of *openFile) stopHash() {
+	if of.hp != nil {
+		of.hp.Close()
+		of.hp = nil
+	}
 }
 
 // conn serves one authenticated connection.
@@ -497,10 +508,12 @@ func (c *conn) onFileStart(m proto.FileStart) error {
 	if err != nil {
 		return err
 	}
-	if m.Offset > 0 && prefix != nil {
-		of.h = prefix
-	} else {
-		of.h = newHasher()
+	if of.f != nil {
+		h := newHasher()
+		if m.Offset > 0 && prefix != nil {
+			h = prefix
+		}
+		of.hp = hashpipe.New(h)
 	}
 	c.mu.Lock()
 	c.open[m.Index] = of
@@ -569,8 +582,12 @@ func (c *conn) onChunk(m proto.Chunk) error {
 	if of.f == nil {
 		return nil // per-file failure: discard
 	}
-	_, _ = of.h.Write(m.Data)
-	if _, err := of.f.Write(m.Data); err != nil {
+	// Hash on the helper goroutine while writing; m.Data aliases the frame
+	// buffer, so both must finish before the next Recv (NFR-3).
+	of.hp.Start(m.Data)
+	_, err := of.f.Write(m.Data)
+	of.hp.Wait()
+	if err != nil {
 		if isNoSpace(err) {
 			fe := fsFatal(err)
 			c.fail(fe)
@@ -578,6 +595,7 @@ func (c *conn) onChunk(m proto.Chunk) error {
 		}
 		c.r.log.Info("write failed", "path", proto.Printable(of.entry.Path), "err", err)
 		_ = of.f.Close()
+		of.stopHash()
 		of.f, of.err = nil, proto.CodeIO
 	}
 	return nil
@@ -605,6 +623,7 @@ func (c *conn) onFileEnd(ctx context.Context, m proto.FileEnd) error {
 		if of.f != nil {
 			_ = of.f.Close()
 		}
+		of.stopHash()
 		return netErr(ctx.Err())
 	}
 }
@@ -621,8 +640,11 @@ func (c *conn) onFileAbort(m proto.FileAbort) error {
 	case stReceiving:
 		// Keep the .part file: a later run may resume it, and the final
 		// hash check catches stale content (XFER-1).
-		if of := c.open[m.Index]; of != nil && of.f != nil {
-			_ = of.f.Close()
+		if of := c.open[m.Index]; of != nil {
+			if of.f != nil {
+				_ = of.f.Close()
+			}
+			of.stopHash()
 		}
 		delete(c.open, m.Index)
 		c.receiving--
@@ -669,6 +691,7 @@ func (c *conn) finalizer(ctx context.Context) {
 			if of.f != nil {
 				_ = of.f.Close()
 			}
+			of.stopHash()
 			continue
 		}
 		ack, err := c.finalize(of)
@@ -698,7 +721,8 @@ func (c *conn) finalize(of *openFile) (proto.Ack, error) {
 		return proto.Ack{Index: idx, Status: proto.AckError, Code: of.err}, nil
 	}
 	var sum [proto.HashSize]byte
-	copy(sum[:], of.h.Sum(nil))
+	copy(sum[:], of.hp.Hash().Sum(nil))
+	of.stopHash()
 	if !bytes.Equal(sum[:], of.want[:]) {
 		// XFER-4: delete the .part and allow one retransmission from 0.
 		_ = of.f.Close()
@@ -770,7 +794,7 @@ func (c *conn) finalize(of *openFile) (proto.Ack, error) {
 	if err := c.root.Rename(part, name); err != nil {
 		return perFile("rename", err)
 	}
-	if err := syncDir(c.root, path.Dir(native(e.Path))); err != nil {
+	if err := syncDir(c.root, filepath.Dir(name)); err != nil {
 		c.r.log.Debug("cannot sync directory", "path", proto.Printable(path.Dir(e.Path)), "err", err)
 	}
 	c.mu.Lock()
@@ -798,14 +822,22 @@ func (c *conn) onDone() error {
 		return netErr(err)
 	}
 	c.r.log.Info("transfer complete", "files", totals.Transferred, "bytes", totals.Bytes)
-	c.r.complete()
 	// Give the sender a moment to read DONE and close first, so the reply
-	// is not lost to an early close (D-5.15).
+	// is not lost to an early close (D-5.15). Completion is signalled only
+	// afterwards, because it shuts the receiver down.
 	t := time.AfterFunc(c.r.opts.Linger, func() { _ = c.link.Close() })
-	defer t.Stop()
+	c.drain()
+	t.Stop()
+	c.r.complete()
+	return nil
+}
+
+// drain discards messages until the link fails or is closed; after DONE
+// any error, including the sender's close, simply ends the session.
+func (c *conn) drain() {
 	for {
 		if _, err := c.link.Recv(); err != nil {
-			return nil
+			return
 		}
 	}
 }
@@ -827,6 +859,7 @@ func (c *conn) closeOpen() {
 		if of.f != nil {
 			_ = of.f.Close()
 		}
+		of.stopHash()
 		delete(c.open, i)
 	}
 }

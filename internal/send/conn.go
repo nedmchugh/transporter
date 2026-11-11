@@ -19,6 +19,7 @@ import (
 	"lukechampine.com/blake3"
 
 	"github.com/OWNER/transporter/internal/fail"
+	"github.com/OWNER/transporter/internal/hashpipe"
 	"github.com/OWNER/transporter/internal/proto"
 )
 
@@ -87,7 +88,7 @@ func (c *sconn) waitFor(ctx context.Context, cond func() bool) error {
 func violation(link *proto.Link, format string, args ...any) error {
 	msg := fmt.Sprintf(format, args...)
 	link.Abort(proto.Error{Code: proto.CodeProtocol, Fatal: true, Message: "protocol violation: " + msg}, abortTimeout)
-	return fail.New(fail.Protocol, "protocol violation by the receiver: "+msg, "use the same Transporter version on both machines", nil)
+	return fail.New(fail.Protocol, "protocol violation by the receiver: "+msg, fail.SameVersionHint, nil)
 }
 
 // abortTimeout bounds how long a final ERROR message may take to send.
@@ -114,7 +115,7 @@ func (c *sconn) run(ctx context.Context) (*proto.Done, error) {
 		if m.Version != proto.Version {
 			msg := fmt.Sprintf("protocol version mismatch: this sender speaks version %d, the receiver speaks version %d", proto.Version, m.Version)
 			c.link.Abort(proto.Error{Code: proto.CodeVersion, Fatal: true, Message: msg}, abortTimeout)
-			return nil, fail.New(fail.Protocol, msg, "use the same Transporter version on both machines", nil)
+			return nil, fail.New(fail.Protocol, msg, fail.SameVersionHint, nil)
 		}
 		if m.SessionID != s.sessionID {
 			return nil, violation(c.link, "HELLO with a different session id")
@@ -319,7 +320,7 @@ func peerError(m proto.Error) error {
 	case proto.CodeInterrupted:
 		return fail.New(fail.Network, msg, "start the receiver again and rerun with its new code to resume", nil)
 	case proto.CodeVersion, proto.CodeProtocol, proto.CodeBadManifest:
-		return fail.New(fail.Protocol, msg, "use the same Transporter version on both machines", nil)
+		return fail.New(fail.Protocol, msg, fail.SameVersionHint, nil)
 	}
 	return fail.New(fail.Internal, msg, "", nil)
 }
@@ -504,6 +505,10 @@ func (c *sconn) sendFile(ctx context.Context, idx uint32, offset uint64, buf []b
 			return perFile(errChanged.Error(), proto.CodeChanged, false)
 		}
 	}
+	// Hash each chunk on a helper goroutine while it is encrypted and
+	// sent; both only read buf (NFR-3).
+	hp := hashpipe.New(h)
+	defer hp.Close()
 	if err := c.link.Send(proto.FileStart{Index: idx, Offset: offset}); err != nil {
 		return netErr("connection lost", err)
 	}
@@ -516,6 +521,7 @@ func (c *sconn) sendFile(ctx context.Context, idx uint32, offset uint64, buf []b
 	// ever sent (SND-6); memory use is one chunk buffer (SND-4).
 	for pos := offset; pos < it.Size; {
 		n := min(uint64(proto.ChunkSize), it.Size-pos)
+		hp.Wait() // the previous chunk's hashing still reads buf
 		hdr := proto.AppendChunkHeader(buf[:0], idx, pos)
 		data := buf[len(hdr) : len(hdr)+int(n)]
 		if _, err := io.ReadFull(f, data); err != nil {
@@ -524,8 +530,9 @@ func (c *sconn) sendFile(ctx context.Context, idx uint32, offset uint64, buf []b
 			}
 			return perFile(readErr(err).Error(), proto.CodeUnreadable, true)
 		}
-		_, _ = h.Write(data)
+		hp.Start(data)
 		if testCorruptChunk != nil {
+			hp.Wait()
 			testCorruptChunk(idx, pos, data)
 		}
 		if err := c.link.SendEncoded(buf[:len(hdr)+int(n)]); err != nil {
@@ -542,7 +549,7 @@ func (c *sconn) sendFile(ctx context.Context, idx uint32, offset uint64, buf []b
 		return perFile(errChanged.Error(), proto.CodeChanged, true)
 	}
 	var sum [proto.HashSize]byte
-	copy(sum[:], h.Sum(nil))
+	copy(sum[:], hp.Hash().Sum(nil))
 	c.mu.Lock()
 	c.open = false
 	c.awaiting[idx] = it.Size - offset

@@ -16,6 +16,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/OWNER/transporter/internal/code"
 	"github.com/OWNER/transporter/internal/fail"
@@ -196,6 +197,8 @@ func TestHelpDocumentsEveryFlag(t *testing.T) {
 	}
 }
 
+// TestListenAddrs covers RCV-4: every non-loopback address, or only the
+// explicitly bound one.
 func TestListenAddrs(t *testing.T) {
 	if got := listenAddrs("192.0.2.1", 4000); !slices.Equal(got, []string{"192.0.2.1:4000"}) {
 		t.Fatalf("explicit bind: %v", got)
@@ -208,6 +211,34 @@ func TestListenAddrs(t *testing.T) {
 		if !strings.HasSuffix(a, ":4000") {
 			t.Fatalf("address %q", a)
 		}
+	}
+}
+
+// TestParseReceiveFlags covers RCV-1 (DEST defaults to ".") and RCV-3
+// (every flag and its default).
+func TestParseReceiveFlags(t *testing.T) {
+	f, err := parseReceive(nil)
+	if err != nil || f.dest != "." || f.port != 0 || f.bind != "" || f.overwrite || f.verify || f.noMDNS || f.idleTimeout != 10*time.Minute {
+		t.Fatalf("defaults: %+v %v", f, err)
+	}
+	f, err = parseReceive([]string{"--port", "4000", "dest", "--bind", "127.0.0.1", "--overwrite", "--verify", "--idle-timeout", "0", "--no-mdns", "-v"})
+	if err != nil || f.dest != "dest" || f.port != 4000 || f.bind != "127.0.0.1" || !f.overwrite || !f.verify || !f.noMDNS || f.idleTimeout != 0 || f.verbose != 1 {
+		t.Fatalf("set: %+v %v", f, err)
+	}
+}
+
+// TestParseSendFlags covers SND-3: every flag and its default.
+func TestParseSendFlags(t *testing.T) {
+	if CodeEnv != "TRANSPORTER_CODE" {
+		t.Fatalf("CODE-8 environment variable is %q", CodeEnv)
+	}
+	f, err := parseSend([]string{"a"})
+	if err != nil || f.to != "" || f.codeFile != "" || f.retryTimeout != 10*time.Minute || f.verify || f.noMDNS {
+		t.Fatalf("defaults: %+v %v", f, err)
+	}
+	f, err = parseSend([]string{"a", "--to", "h:1", "--code-file", "-", "--retry-timeout", "0", "--verify", "--no-mdns", "b"})
+	if err != nil || f.to != "h:1" || f.codeFile != "-" || f.retryTimeout != 0 || !f.verify || !f.noMDNS || !slices.Equal(f.positionals, []string{"a", "b"}) {
+		t.Fatalf("set: %+v %v", f, err)
 	}
 }
 

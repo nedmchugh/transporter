@@ -153,6 +153,23 @@ func TestNoSpace(t *testing.T) {
 	}
 }
 
+// TestNewCreatesDestination covers RCV-1: a missing destination, including
+// missing parents, is created.
+func TestNewCreatesDestination(t *testing.T) {
+	dest := filepath.Join(t.TempDir(), "a", "b", "dest")
+	r, err := New(Options{Dest: dest, Pairer: testPairer(t)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	if fi, err := os.Stat(dest); err != nil || !fi.IsDir() {
+		t.Fatalf("not created: %v", err)
+	}
+	if ents, _ := os.ReadDir(dest); len(ents) != 0 {
+		t.Fatalf("write probe left files behind: %v", ents)
+	}
+}
+
 // TestDestinationNotWritable covers CLI-7 exit 5 at startup (D-4.8).
 func TestDestinationNotWritable(t *testing.T) {
 	if os.Getuid() == 0 || isWindows() {

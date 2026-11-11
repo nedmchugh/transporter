@@ -13,7 +13,12 @@ import (
 	"context"
 	"errors"
 	"strings"
+
+	"github.com/OWNER/transporter/internal/meta"
 )
+
+// SameVersionHint is the hint for protocol and version errors.
+var SameVersionHint = "use the same " + meta.Name + " version on both machines"
 
 // Kind is the class of a failure.
 type Kind int

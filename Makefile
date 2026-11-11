@@ -12,6 +12,8 @@ GOLANGCI_LINT_VERSION := v2.15.0
 GOLANGCI_LINT         ?= $(GOBIN)/golangci-lint
 GO_LICENSES           := $(GO) run github.com/google/go-licenses/v2@v2.0.1
 GOVULNCHECK           := $(GO) run golang.org/x/vuln/cmd/govulncheck@v1.9.0
+# Override to run without a global install, e.g.
+#   make docs-check MARKDOWNLINT="npx --yes markdownlint-cli2@0.24.0"
 MARKDOWNLINT          ?= markdownlint-cli2
 LYCHEE                ?= lychee
 
@@ -84,10 +86,12 @@ tidy-check:
 vuln:
 	$(GOVULNCHECK) ./...
 
-# Markdown lint and link check. Outside CI, missing tools are skipped with a
+# Requirements-to-tests table check (TEST-1), Markdown lint and link
+# check. Outside CI, missing tools are skipped with a
 # note; in CI (CI=true) they are required.
 docs-check:
-	@if command -v $(MARKDOWNLINT) >/dev/null 2>&1; then \
+	$(GO) run ./tools/reqcheck .
+	@if command -v $(firstword $(MARKDOWNLINT)) >/dev/null 2>&1; then \
 		$(MARKDOWNLINT) '**/*.md' '#obsolete' '#node_modules'; \
 	elif [ "$$CI" = "true" ]; then echo "$(MARKDOWNLINT) not installed"; exit 1; \
 	else echo "docs-check: $(MARKDOWNLINT) not installed, skipping Markdown lint"; fi

@@ -138,7 +138,7 @@ func TestStrayPartsUntouched(t *testing.T) {
 	}
 }
 
-// TestPipelining covers XFER-6 and REL-8: the sender has several files in
+// TestPipelining covers XFER-6, PROTO-6 and REL-8: the sender has several files in
 // flight without waiting for each ACK, and never more than the bounds.
 func TestPipelining(t *testing.T) {
 	testutil.CheckLeaks(t)

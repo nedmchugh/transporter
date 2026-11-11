@@ -135,7 +135,7 @@ type CompareOptions struct {
 	Mtime bool // file modification times, to the second
 }
 
-// CompareTrees fails the test unless the trees under want and got have the
+// CompareTrees implements TEST-10: it fails the test unless the trees under want and got have the
 // same entries, sizes and content hashes (TEST-10).
 func CompareTrees(t testing.TB, want, got string, opts CompareOptions) {
 	t.Helper()

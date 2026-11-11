@@ -50,7 +50,8 @@ func faultTree(t *testing.T, small int) string {
 	return src
 }
 
-// TestFaultInjection covers TEST-7, REL-1, REL-2, REL-3, REL-6 and D-4.3:
+// TestFaultInjection covers TEST-7, TEST-6, REL-1, REL-2, REL-3, REL-6 and
+// D-4.3:
 // after each fault the sender reconnects with a fresh handshake, rebuilds
 // state from the destination, and completes with an identical tree and no
 // leaked goroutines.
@@ -218,7 +219,8 @@ func TestReceiverRestartBetweenAttempts(t *testing.T) {
 	testutil.CompareTrees(t, src, dst, testutil.CompareOptions{})
 }
 
-// TestSupersession covers RCV-5 and REL-2: after a network failure that the
+// TestSupersession covers RCV-5, REL-2 and PROTO-5 (the session_id only
+// identifies the continuing session): after a network failure that the
 // receiver has not noticed (its side of the old connection stays open), a
 // reconnect with the same session_id replaces the old connection at once,
 // rather than after the receiver's dead-connection timeout.

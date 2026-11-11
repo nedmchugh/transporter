@@ -94,7 +94,7 @@ func TestServiceRecords(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if svc.Port != 4321 || svc.Service != Service || !strings.HasPrefix(svc.Instance, "transfer-") {
+	if svc.Port != 4321 || svc.Service != Service || !strings.HasPrefix(svc.Instance, "transfer-") || svc.HostName != svc.Instance+".local." {
 		t.Fatalf("service %+v", svc)
 	}
 	if len(svc.TXT) != 2 || svc.TXT[0] != "tag=cafebabe" || svc.TXT[1] != "v=1" {

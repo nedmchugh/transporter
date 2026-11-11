@@ -55,8 +55,9 @@ Flags:
                        and errors only)
 `
 
-// CodeEnv is the environment variable holding the code (CODE-8).
-const CodeEnv = "TRANSPORTER_CODE"
+// CodeEnv is the environment variable holding the code (CODE-8):
+// TRANSPORTER_CODE, derived from the project name (NFR-7).
+var CodeEnv = strings.ToUpper(meta.Name) + "_CODE"
 
 type sendFlags struct {
 	to           string
@@ -264,6 +265,7 @@ func printSendSummary(env *environment, s *send.Summary) {
 	list(w, "Errors", errs)
 	list(w, "Integrity failures (hash mismatch after retransmission)", s.Integrity)
 	list(w, "Warnings (not transferred, by design)", s.Warnings)
+	list(w, "Not transferred yet (run the same command again to resume)", s.NotTransferred)
 }
 
 func plural(n int, one, many string) string {

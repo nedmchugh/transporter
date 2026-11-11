@@ -1,0 +1,17 @@
+# markdownlint configuration (CI-1 docs job).
+config:
+  default: true
+  # Prose is wrapped where it reads well; tables and URLs make long lines.
+  MD013: false
+  # Same heading text under different parents (for example "Added").
+  MD024:
+    siblings_only: true
+  # The Contributor Covenant text is reproduced verbatim.
+  MD033: false
+  # GitHub issue and pull request templates start with front matter or a
+  # section heading by convention, not a document title.
+  MD041: false
+ignores:
+  - "obsolete/**"
+  - "docs/requirements.md"
+  - "CODE_OF_CONDUCT.md"

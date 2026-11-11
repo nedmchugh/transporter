@@ -16,7 +16,6 @@ import (
 	"log"
 	"log/slog"
 	"net"
-	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -75,12 +74,10 @@ func newService(port int, tag [code.TagSize]byte, ips []net.IP) (*mdns.MDNSServi
 		return nil, err
 	}
 	instance := "transfer-" + hex.EncodeToString(b[:])
-	host, err := os.Hostname()
-	if err != nil || host == "" {
-		host = instance
-	}
-	host = strings.TrimSuffix(host, ".local")
-	svc, err := mdns.NewMDNSService(instance, Service, "", host+".local.", port, ips, []string{TagText(tag), "v=1"})
+	// The SRV target is a random name too, not the machine's host name:
+	// that would reveal the host name on the LAN and could clash with the
+	// system's own mDNS responder (docs/DECISIONS.md D-5b.1).
+	svc, err := mdns.NewMDNSService(instance, Service, "", instance+".local.", port, ips, []string{TagText(tag), "v=1"})
 	if err != nil {
 		return nil, fmt.Errorf("mdns: building service record: %w", err)
 	}

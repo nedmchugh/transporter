@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/OWNER/transporter/internal/fail"
+	"github.com/OWNER/transporter/internal/meta"
 	"github.com/OWNER/transporter/internal/pairing"
 	"github.com/OWNER/transporter/internal/progress"
 	"github.com/OWNER/transporter/internal/proto"
@@ -90,7 +91,10 @@ type Summary struct {
 	// StrayParts lists .part files in the destination for paths not in
 	// the manifest; they are left untouched (RES-4).
 	StrayParts []string
-	Elapsed    time.Duration
+	// NotTransferred lists manifest files with no outcome yet, for example
+	// after an interruption (REL-7).
+	NotTransferred []string
+	Elapsed        time.Duration
 	// Connections counts authenticated connections.
 	Connections int
 }
@@ -186,7 +190,7 @@ func New(opts Options) (*Receiver, error) {
 func probeWritable(root *os.Root) error {
 	var b [8]byte
 	_, _ = rand.Read(b[:])
-	name := ".transporter-write-test-" + hex.EncodeToString(b[:])
+	name := "." + meta.Name + "-write-test-" + hex.EncodeToString(b[:])
 	f, err := root.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
@@ -362,7 +366,7 @@ func (r *Receiver) serve(ctx context.Context, cancel context.CancelFunc, link *p
 	if hello.Version != proto.Version {
 		msg := fmt.Sprintf("protocol version mismatch: this receiver speaks version %d, the sender speaks version %d", proto.Version, hello.Version)
 		link.Abort(proto.Error{Code: proto.CodeVersion, Fatal: true, Message: msg}, abortTimeout)
-		return fail.New(fail.Protocol, msg, "use the same Transporter version on both machines", nil)
+		return fail.New(fail.Protocol, msg, fail.SameVersionHint, nil)
 	}
 	ac, sess, ok := r.acquire(ctx, hello.SessionID, cancel)
 	if !ok {
@@ -468,7 +472,7 @@ func netErr(err error) error {
 func violation(link *proto.Link, format string, args ...any) error {
 	msg := fmt.Sprintf(format, args...)
 	link.Abort(proto.Error{Code: proto.CodeProtocol, Fatal: true, Message: "protocol violation: " + msg}, abortTimeout)
-	return fail.New(fail.Protocol, "protocol violation by the sender: "+msg, "use the same Transporter version on both machines", nil)
+	return fail.New(fail.Protocol, "protocol violation by the sender: "+msg, fail.SameVersionHint, nil)
 }
 
 func unwrapPath(err error) error {

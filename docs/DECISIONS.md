@@ -147,7 +147,7 @@ commit). The `codeql-action` "latest release" is a CodeQL bundle, so its
 version tag was taken from `/tags`.
 
 | Action | Version | Commit SHA |
-|---|---|---|
+| --- | --- | --- |
 | actions/checkout | v7.0.1 | 3d3c42e5aac5ba805825da76410c181273ba90b1 |
 | actions/setup-go | v7.0.0 | b7ad1dad31e06c5925ef5d2fc7ad053ef454303e |
 | actions/upload-artifact | v7.0.2 | cf430e030ddbb5b0abf93d22962f4752f3646cd9 |
@@ -181,6 +181,9 @@ and compared word for word with the SPDX copy (`spdx/license-list-data`,
   - `internal/meta`: the single project-name constant (NFR-7) and build
     version.
   - `tools/spdxcheck`: the SPDX header checker used by CI and `make`.
+  - `tools/reqcheck`: checks that every MUST requirement has a row in the
+    requirements-to-tests table and that the tests it names exist (TEST-1).
+  - `internal/hashpipe`: overlaps hashing with I/O (D-7b.2).
 - **D-2.2 Project name vs. protocol labels (NFR-7).** The project name exists
   once, as `meta.Name`. The protocol constants that happen to contain the word
   (`transporter/1` prologue, the HKDF `info` labels, the mDNS service type
@@ -335,8 +338,11 @@ and compared word for word with the SPDX copy (`spdx/license-list-data`,
 ## 5b. Discovery
 
 - **D-5b.1 mDNS records.** Service `_transporter._tcp.local.`, a random
-  instance name (`transfer-<8 hex>`, revealing nothing about the user), the
-  host name, the port, and TXT `tag=<8 hex>` and `v=1`. The sender queries
+  instance name (`transfer-<8 hex>`), an SRV target with the same random
+  label (`transfer-<8 hex>.local.`, not the machine's host name, to avoid
+  revealing it and to avoid clashing with the system's own mDNS responder),
+  the port, A/AAAA records for the interface addresses, and TXT
+  `tag=<8 hex>` and `v=1`. The sender queries
   once per second until the 5 s timeout and takes the first answer with its
   tag (DISC-2).
 - **D-5b.2 Discovery failure is final.** A failed discovery exits 4 with a
@@ -357,7 +363,7 @@ and compared word for word with the SPDX copy (`spdx/license-list-data`,
 ## 6. Dependencies (NFR-5)
 
 | Module | License | Why the standard library is not enough |
-|---|---|---|
+| --- | --- | --- |
 | github.com/flynn/noise | BSD-3-Clause | Required by SEC-1 (Noise NNpsk0). |
 | golang.org/x/crypto | BSD-3-Clause | Required by noise (ChaCha20-Poly1305, BLAKE2s, Curve25519). |
 | lukechampine.com/blake3 | MIT | BLAKE3 required by XFER-1; not in stdlib. |
@@ -390,6 +396,30 @@ dependency (and its `testify` dependency tree) for about 60 lines of code.
   paths not yet tested), 78% at phase 4, 82% at phase 5, and the full 85% from phase 6
   onward.
 
+## 7b. Performance (NFR-3)
+
+- **D-7b.1 Measurements** (4-vCPU VM, NVMe-class disk that writes at
+  1.7 GB/s with fsync). `BenchmarkTransfer` (one 256 MiB file, in-process
+  over loopback, no race detector) reaches about **200 MB/s**. The CLI moved
+  1 GiB over loopback in about 9 s (about 115 MB/s, before the
+  optimizations below) with a sender peak RSS of 18 MB, independent of file
+  size (SND-4, NFR-4).
+- **D-7b.2 Optimizations made.** Frame reads go through a 64 KiB
+  `bufio.Reader`, so one syscall serves many frames. The fixed frame buffer
+  and the length check before reading the body are unchanged. BLAKE3
+  hashing of each chunk runs on a helper goroutine (`internal/hashpipe`)
+  while the chunk is encrypted and sent (sender) or written to disk
+  (receiver). Hash order and results are identical to sequential hashing.
+  Together these took throughput from 148 to about 200 MB/s.
+- **D-7b.3 Deviation from the SHOULD.** About 200 MB/s exceeds gigabit
+  Ethernet (about 117 MB/s of payload), so on a gigabit LAN the network is
+  the limit, as NFR-3 asks. On loopback or 10 GbE the implementation is the
+  limit: one connection processes chunks in order, and per-chunk BLAKE3,
+  ChaCha20-Poly1305 and syscalls add up. Going further would mean several
+  files in parallel over several connections, or batching frames into
+  larger writes. That would change the protocol or the pipeline and was not
+  worth the risk for v1. Recorded here per DOC-8.
+
 ## 8. Test seams
 
 - **D-8.1** `internal/send` has one unexported, test-only hook,
@@ -399,3 +429,46 @@ dependency (and its `testify` dependency tree) for about 60 lines of code.
 - **D-8.2** A second hook, `testObserveInflight`, reports the in-flight file
   and byte counts, so tests can show that pipelining happens and stays
   within its bounds (XFER-6).
+
+## 9. Documentation and repository
+
+- **D-9.1 Markdown lint scope.** `docs/requirements.md` (the source
+  specification, kept unchanged) and `CODE_OF_CONDUCT.md` (the Contributor
+  Covenant 2.1, reproduced verbatim from contributor-covenant.org) are
+  excluded from markdownlint. MD013 (line length) is off because tables and
+  URLs need long lines. MD041 is off because GitHub issue and pull request
+  templates do not start with a title.
+- **D-9.2 Contact placeholders.** `SECURITY.md` and `CODE_OF_CONDUCT.md`
+  contain `MAINTAINER-CONTACT`, a placeholder for the maintainer's contact
+  address (like `OWNER`).
+- **D-9.3 Interrupted runs (REL-7).** Both summaries list "not transferred
+  yet" files (capped at 20 lines), in addition to the counts, so an
+  interrupted run says what remains.
+- **D-9.4 Project name in messages (NFR-7).** User-facing strings that
+  mention the tool (`TRANSPORTER_CODE`, the write-probe file name, version
+  hints) are derived from `meta.Name`. Wire constants stay literal
+  (D-2.2).
+
+## 10. Maintainer open items
+
+These are for the maintainer to decide or do; the implementer did not
+decide them (requirements section 17).
+
+1. Fill in the copyright holder, the `OWNER` placeholder (module path,
+   `CODEOWNERS`, workflows, docs), and the `MAINTAINER-CONTACT` placeholder
+   (`SECURITY.md`, `CODE_OF_CONDUCT.md`).
+2. Review export-compliance obligations before distributing (LIC-8).
+3. Apply branch protection and repository settings
+   (`docs/branch-protection.md`, CI-8), and enable private vulnerability
+   reporting.
+4. Dependency licenses: all dependencies are on the LIC-3 allowlist, so
+   nothing is outside it. Decide whether MPL-2.0 remains appropriate.
+5. Actions pinned by tag: none. Every action is pinned to a commit SHA
+   verified through the GitHub API on 2026-11-10 (section 1.7).
+6. Confirm the name "transporter" is acceptable for the intended
+   distribution channels; other small projects use the same name.
+7. Consider an independent cryptographic and security review before wide
+   distribution (SEC-16).
+8. Recommendation: raise the minimum Go version to 1.26 (D-1.1). Go 1.25 is
+   out of upstream support, and current `golang.org/x` modules, including
+   security fixes in `x/crypto`, require Go 1.26.

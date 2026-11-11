@@ -18,6 +18,7 @@
 package secure
 
 import (
+	"bufio"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -90,6 +91,7 @@ type Conn struct {
 	raw net.Conn
 
 	rmu  sync.Mutex
+	br   *bufio.Reader // buffers raw reads: one syscall serves many frames
 	rhdr [lenSize]byte
 	rbuf []byte // MaxFrame bytes, allocated once
 	dec  *noise.CipherState
@@ -172,6 +174,10 @@ func handshake(ctx context.Context, raw net.Conn, p pairing.Pairer, role pairing
 	}
 	c.rbuf = make([]byte, MaxFrame)
 	c.wbuf = make([]byte, lenSize+MaxFrame)
+	// Read deadlines still apply: bufio only reads from raw when its
+	// buffer is empty. The handshake used raw directly, so no data has
+	// been read ahead of this buffer.
+	c.br = bufio.NewReaderSize(raw, 64<<10)
 	return c, nil
 }
 
@@ -277,7 +283,7 @@ func (c *Conn) ReadFrame() ([]byte, error) {
 	if c.rerr != nil {
 		return nil, c.rerr
 	}
-	if _, err := io.ReadFull(c.raw, c.rhdr[:]); err != nil {
+	if _, err := io.ReadFull(c.br, c.rhdr[:]); err != nil {
 		return nil, c.failRead(err, false)
 	}
 	n := int(binary.BigEndian.Uint16(c.rhdr[:]))
@@ -287,7 +293,7 @@ func (c *Conn) ReadFrame() ([]byte, error) {
 	if n < TagSize+1 || n > MaxFrame {
 		return nil, c.failRead(ErrFrameSize, true)
 	}
-	if _, err := io.ReadFull(c.raw, c.rbuf[:n]); err != nil {
+	if _, err := io.ReadFull(c.br, c.rbuf[:n]); err != nil {
 		return nil, c.failRead(noEOF(err), false)
 	}
 	// Decrypt in place; ChaCha20-Poly1305 permits exact overlap.
