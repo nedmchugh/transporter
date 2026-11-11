@@ -250,6 +250,18 @@ and compared word for word with the SPDX copy (`spdx/license-list-data`,
   process swapping in a symlink between the check and the use) is still
   confined by `os.Root`. This is documented.
 
+- **D-4.7 os.Root coverage (SEC-9).** Every destination operation goes
+  through `*os.Root`, with two exceptions. `os.MkdirAll(DEST)` creates the
+  root itself, which cannot be opened before it exists. The free-space query
+  (`statfs` / `GetDiskFreeSpaceEx`) only reads filesystem totals. The test
+  `TestOnlyRootFilesystemAccess` scans the package source, so any new
+  path-based `os` call fails CI.
+- **D-4.8 Writability probe.** At startup the receiver creates and deletes
+  a uniquely named empty file
+  (`.transporter-write-test-<random>`) in DEST, so an unwritable destination
+  fails with exit 5 before the user starts the sender. The file is created
+  and removed in the same run, which is consistent with RES-1 and RES-4.
+
 ## 5. Protocol
 
 - **D-5.1** One application message per frame. The message type is the first
@@ -346,8 +358,8 @@ dependency (and its `testify` dependency tree) for about 60 lines of code.
   `-coverpkg` so integration tests count for the packages they exercise. It
   is enforced by `make cover` (`COVER_MIN`). As the requirements allow, the
   threshold ratchets up by phase: 70% at phase 3 (resume, verify and fault
-  paths not yet tested), raised as later phases add tests, and 85% from
-  phase 8.
+  paths not yet tested), 78% at phase 4, raised as later phases add tests,
+  and 85% from phase 8.
 
 ## 8. Test seams
 

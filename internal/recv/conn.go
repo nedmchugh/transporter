@@ -101,10 +101,12 @@ type conn struct {
 }
 
 func newConn(r *Receiver, link *proto.Link, sess *session, verify bool) *conn {
+	checker := manifest.NewChecker()
+	checker.MaxEntries = r.opts.MaxEntries
 	return &conn{
 		r: r, link: link, sess: sess, verify: verify,
 		root: r.root, prog: r.opts.Progress,
-		checker: manifest.NewChecker(),
+		checker: checker,
 		open:    map[uint32]*openFile{},
 		errc:    make(chan error, 1),
 	}

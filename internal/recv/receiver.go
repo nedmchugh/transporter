@@ -65,6 +65,8 @@ type Options struct {
 	Finalizers int
 	// Linger is how long to wait for the sender to close after DONE.
 	Linger time.Duration
+	// MaxEntries overrides proto.MaxEntries when positive (tests).
+	MaxEntries int
 	// Logger receives diagnostics. Nil discards them.
 	Logger *slog.Logger
 	// Progress, if set, is updated as data arrives.
