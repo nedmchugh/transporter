@@ -1,5 +1,5 @@
 # Weekly dependency updates (CI-6). Go updates that raise the go directive
-# above the minimum (NFR-2) fail the Go 1.25 test job by design.
+# above the minimum (NFR-2) fail the Go 1.26 test job by design.
 version: 2
 updates:
   - package-ecosystem: gomod

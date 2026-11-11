@@ -5,7 +5,7 @@ CI gates changes, and the license terms for contributions.
 
 ## Setup
 
-- Go 1.25 or newer (the `toolchain` line in `go.mod` selects the latest
+- Go 1.26 or newer (the `toolchain` line in `go.mod` selects the latest
   tested release automatically).
 - For `make lint`: [golangci-lint](https://golangci-lint.run/) v2.15.0 in
   `$(go env GOPATH)/bin` or on `PATH`.

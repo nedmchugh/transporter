@@ -36,7 +36,7 @@ From a release: download the archive for your platform from the project's
 releases page, check it against `checksums.txt`, and put `transporter` on
 your `PATH`.
 
-From source (Go 1.25 or newer):
+From source (Go 1.26 or newer):
 
 ```console
 go install github.com/OWNER/transporter/cmd/transporter@latest

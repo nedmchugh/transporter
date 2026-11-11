@@ -20,8 +20,9 @@ env:
   # Without this, the toolchain line in go.mod would silently replace the Go
   # version under test (docs/DECISIONS.md D-1.1).
   GOTOOLCHAIN: local
-  # The oldest Go whose os.Root has every needed operation (NFR-2).
-  GO_MIN: "1.25.x"
+  # The minimum supported Go: 1.26 (docs/DECISIONS.md D-1.3; os.Root needs
+  # 1.25, but 1.25 is out of upstream support).
+  GO_MIN: "1.26.x"
   GO_LATEST: "1.27.x"
 
 jobs:
@@ -50,7 +51,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        go: ["1.25.x", "1.27.x"]
+        go: ["1.26.x", "1.27.x"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0

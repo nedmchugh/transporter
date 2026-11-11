@@ -11,11 +11,11 @@ in sync with job names in `.github/workflows/`.
 | Workflow | Check name |
 | --- | --- |
 | ci | `lint` |
-| ci | `test (ubuntu-latest, go 1.25.x)` |
+| ci | `test (ubuntu-latest, go 1.26.x)` |
 | ci | `test (ubuntu-latest, go 1.27.x)` |
-| ci | `test (macos-latest, go 1.25.x)` |
+| ci | `test (macos-latest, go 1.26.x)` |
 | ci | `test (macos-latest, go 1.27.x)` |
-| ci | `test (windows-latest, go 1.25.x)` |
+| ci | `test (windows-latest, go 1.26.x)` |
 | ci | `test (windows-latest, go 1.27.x)` |
 | ci | `e2e (ubuntu-latest)` |
 | ci | `e2e (macos-latest)` |
@@ -58,11 +58,11 @@ gh api -X PUT repos/OWNER/transporter/branches/main/protection \
     "strict": true,
     "checks": [
       {"context": "lint"},
-      {"context": "test (ubuntu-latest, go 1.25.x)"},
+      {"context": "test (ubuntu-latest, go 1.26.x)"},
       {"context": "test (ubuntu-latest, go 1.27.x)"},
-      {"context": "test (macos-latest, go 1.25.x)"},
+      {"context": "test (macos-latest, go 1.26.x)"},
       {"context": "test (macos-latest, go 1.27.x)"},
-      {"context": "test (windows-latest, go 1.25.x)"},
+      {"context": "test (windows-latest, go 1.26.x)"},
       {"context": "test (windows-latest, go 1.27.x)"},
       {"context": "e2e (ubuntu-latest)"},
       {"context": "e2e (macos-latest)"},

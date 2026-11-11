@@ -31,7 +31,8 @@ override earlier ones where they conflict.
   remove, stat and lstat. `Rename`, `MkdirAll` and `Chtimes` first appear in Go
   1.25, so **the minimum is Go 1.25**, which matches the belief stated in
   NFR-2.
-- `go.mod` uses `go 1.25.0` and `toolchain go1.27.4` (the latest stable
+- *(Superseded by D-1.3: the minimum is now Go 1.26.)* `go.mod` used
+  `go 1.25.0` and `toolchain go1.27.4` (the latest stable
   release on 2026-11-10, from <https://go.dev/dl/?mode=json>). CI tests Go
   1.25.x with `GOTOOLCHAIN=local` (otherwise the `toolchain` line would
   silently switch to 1.27.4) and the latest stable release.
@@ -54,6 +55,22 @@ override earlier ones where they conflict.
   confirms the code does not reach them ("Your code is affected by 0
   vulnerabilities"), so the `vuln` job passes. This is the main reason the
   final report recommends raising the minimum to Go 1.26.
+
+### 1.1b D-1.3: minimum raised to Go 1.26 (maintainer decision)
+
+- On 2026-11-10 the maintainer decided to raise the minimum Go version to
+  **1.26**. This was the recommendation in the final report and open item 8.
+  It knowingly departs from the letter of NFR-2, which defines the minimum
+  as the oldest release with the needed `os.Root` operations (Go 1.25,
+  still true as verified above). Reason: Go 1.25 is out of upstream
+  security support, and current `golang.org/x` modules, including the
+  `x/crypto` fixes for GO-2026-6354 and GO-2026-6355, require Go 1.26.
+- `go.mod`: `go 1.26.0`, `toolchain go1.27.4`. CI tests 1.26.x and 1.27.x
+  with `GOTOOLCHAIN=local`.
+- Dependencies refreshed to current releases: `x/crypto v0.58.0`,
+  `x/net v0.62.0`, `x/sys v0.50.0`, `x/term v0.48.0`, `x/text v0.44.0`,
+  `miekg/dns v1.1.73`, `klauspost/cpuid/v2 v2.4.2`. The pinned-old-version
+  notes in D-1.1 no longer apply.
 
 ### 1.2 `github.com/flynn/noise` (SEC-1)
 
@@ -469,6 +486,5 @@ decide them (requirements section 17).
    distribution channels; other small projects use the same name.
 7. Consider an independent cryptographic and security review before wide
    distribution (SEC-16).
-8. Recommendation: raise the minimum Go version to 1.26 (D-1.1). Go 1.25 is
-   out of upstream support, and current `golang.org/x` modules, including
-   security fixes in `x/crypto`, require Go 1.26.
+8. Done: the minimum Go version was raised to 1.26 at the maintainer's
+   request (D-1.3).
