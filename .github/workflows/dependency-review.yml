@@ -14,6 +14,12 @@ concurrency:
 
 jobs:
   dependency-review:
+    # Dependency review needs GitHub Advanced Security on private repositories,
+    # so this runs only on a public repository or when the repository
+    # variable ENABLE_CODE_SCANNING is "true" (docs/DECISIONS.md D-9.5).
+    # Otherwise the job is skipped, which satisfies a required check.
+    # Comparing visibility to 'public' is false when it is missing.
+    if: github.event.repository.visibility == 'public' || vars.ENABLE_CODE_SCANNING == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

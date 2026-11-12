@@ -504,6 +504,16 @@ dependency (and its `testify` dependency tree) for about 60 lines of code.
   hints) are derived from `meta.Name`. Wire constants stay literal
   (D-2.2).
 
+- **D-9.5 CodeQL and dependency review on a private repository
+  (maintainer decision, 2026-11-12).** Both need GitHub Advanced Security
+  on a private repository, and the CodeQL job failed there. The workflows
+  stay (CI-2), but their jobs run only when the repository is public or
+  the repository variable `ENABLE_CODE_SCANNING` is `true`; otherwise they
+  are skipped. The LIC-3 license allowlist is still enforced for every
+  change by `make license-check` in `ci.yml`, and vulnerabilities by
+  `govulncheck`, so a private repository loses CodeQL's static analysis
+  and the per-PR dependency diff, not the license or vulnerability gates.
+
 ## 10. Maintainer open items
 
 These are for the maintainer to decide or do; the implementer did not

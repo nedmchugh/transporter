@@ -29,6 +29,11 @@ in sync with job names in `.github/workflows/`.
 | codeql | `codeql` |
 | dependency-review | `dependency-review` |
 
+While the repository is private, the `codeql` and `dependency-review`
+jobs are skipped unless the repository variable `ENABLE_CODE_SCANNING` is
+`true` (they need GitHub Advanced Security there; DECISIONS.md D-9.5). A
+skipped job still satisfies a required check, so they can stay in the list.
+
 When the minimum or latest Go version changes, the `test` check names
 change too; update the protection rule at the same time.
 
