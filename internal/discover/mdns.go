@@ -10,7 +10,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -116,6 +115,20 @@ func advertisedIPs() []net.IP {
 	return out
 }
 
+// familyModes are the address-family combinations Find tries, in order.
+var familyModes = []struct{ noV4, noV6 bool }{
+	{false, false}, // both
+	{false, true},  // IPv4 only
+	{true, false},  // IPv6 only
+}
+
+// retryPause is the wait between rounds in which every family failed.
+const retryPause = 250 * time.Millisecond
+
+// queryContext is the library query, a variable so tests can simulate
+// send failures on one address family.
+var queryContext = mdns.QueryContext
+
 // Find implements Browser: it queries for Service and returns the first
 // answer whose TXT record carries tag (DISC-2). Answers for other tags
 // (other receivers on the LAN) are ignored.
@@ -136,21 +149,40 @@ func (m MDNS) Find(ctx context.Context, tag [code.TagSize]byte, timeout time.Dur
 	entries := make(chan *mdns.ServiceEntry, 256)
 	// The query is repeated within the timeout, because multicast packets
 	// are easily lost and a receiver may start a moment after the sender.
+	// The library fails the whole query when sending on either address
+	// family fails (macOS without an IPv6 multicast route, for example),
+	// before it listens for answers. So a failed query is retried on IPv4
+	// alone and then IPv6 alone, and the family that works is used first
+	// from then on. If none works, the loop pauses briefly and tries again
+	// until the timeout (DISC-3), in case the network is still coming up.
 	var qerr error
+	mode := 0
 	for ctx.Err() == nil {
-		params := mdns.DefaultParams(Service)
-		params.Entries = entries
-		params.Timeout = min(time.Second, timeout)
-		params.Logger = m.libLogger()
-		err := mdns.QueryContext(ctx, params)
-		for len(entries) > 0 {
-			if addr, ok := match(<-entries, want); ok {
-				return addr, nil
+		ok := false
+		for i := range familyModes {
+			fm := familyModes[(mode+i)%len(familyModes)]
+			params := mdns.DefaultParams(Service)
+			params.Entries = entries
+			params.Timeout = min(time.Second, timeout)
+			params.Logger = m.libLogger()
+			params.DisableIPv4, params.DisableIPv6 = fm.noV4, fm.noV6
+			err := queryContext(ctx, params)
+			for len(entries) > 0 {
+				if addr, hit := match(<-entries, want); hit {
+					return addr, nil
+				}
 			}
-		}
-		if err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+			if err == nil || ctx.Err() != nil {
+				mode, ok = (mode+i)%len(familyModes), true
+				break
+			}
 			qerr = err
-			break
+		}
+		if !ok {
+			select {
+			case <-ctx.Done():
+			case <-time.After(retryPause):
+			}
 		}
 	}
 	if qerr != nil {

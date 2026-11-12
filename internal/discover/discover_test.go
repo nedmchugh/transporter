@@ -134,3 +134,90 @@ func TestMatch(t *testing.T) {
 		}
 	}
 }
+
+// fakeQuery replaces the library query for one test. It records which
+// address families each call enabled, fails calls that enable IPv6 (as
+// the library does when the IPv6 send fails), and answers IPv4-only calls
+// with entry, if given.
+func fakeQuery(t *testing.T, entry *mdns.ServiceEntry) *[]string {
+	t.Helper()
+	var calls []string
+	old := queryContext
+	t.Cleanup(func() { queryContext = old })
+	queryContext = func(ctx context.Context, p *mdns.QueryParam) error {
+		calls = append(calls, map[[2]bool]string{
+			{false, false}: "both", {false, true}: "v4", {true, false}: "v6",
+		}[[2]bool{p.DisableIPv4, p.DisableIPv6}])
+		if !p.DisableIPv6 {
+			return errors.New("sendto: no route to host")
+		}
+		if entry != nil {
+			p.Entries <- entry
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+		case <-time.After(p.Timeout):
+		}
+		return nil
+	}
+	return &calls
+}
+
+// TestFindFallsBackToIPv4 covers DISC-1 and DISC-3: when the IPv6 send
+// fails (as on macOS without an IPv6 multicast route), the library fails
+// the whole query; Find retries on IPv4 alone and finds the receiver.
+func TestFindFallsBackToIPv4(t *testing.T) {
+	tag := [4]byte{1, 2, 3, 4}
+	calls := fakeQuery(t, &mdns.ServiceEntry{
+		AddrV4: net.IPv4(192, 0, 2, 7), Port: 41111, InfoFields: []string{TagText(tag)},
+	})
+	addr, err := MDNS{}.Find(context.Background(), tag, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if addr != "192.0.2.7:41111" {
+		t.Fatalf("addr %q", addr)
+	}
+	if got := strings.Join(*calls, ","); got != "both,v4" {
+		t.Fatalf("calls %s, want both,v4", got)
+	}
+}
+
+// TestFindFailureWaitsForTimeout covers DISC-3: when no family can send,
+// Find keeps trying until the timeout instead of failing at once, then
+// reports ErrNotFound with the cause.
+func TestFindFailureWaitsForTimeout(t *testing.T) {
+	old := queryContext
+	t.Cleanup(func() { queryContext = old })
+	n := 0
+	queryContext = func(context.Context, *mdns.QueryParam) error {
+		n++
+		return errors.New("failed to bind to any multicast udp port")
+	}
+	start := time.Now()
+	_, err := MDNS{}.Find(context.Background(), [4]byte{1}, time.Second)
+	if took := time.Since(start); took < time.Second || took > 2*time.Second {
+		t.Fatalf("took %v, want about 1s", took)
+	}
+	if !errors.Is(err, ErrNotFound) || !strings.Contains(err.Error(), "multicast") {
+		t.Fatalf("err %v", err)
+	}
+	if n < 6 { // several rounds of three attempts
+		t.Fatalf("only %d attempts", n)
+	}
+}
+
+// TestFindPrefersWorkingFamily checks that after a fallback the working
+// family is tried first, so later rounds don't repeat the failing send.
+func TestFindPrefersWorkingFamily(t *testing.T) {
+	calls := fakeQuery(t, nil)
+	_, err := MDNS{}.Find(context.Background(), [4]byte{1}, 2500*time.Millisecond)
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("err %v", err)
+	}
+	got := strings.Join(*calls, ",")
+	if !strings.HasPrefix(got, "both,v4,v4") || strings.Count(got, "both") != 1 {
+		t.Fatalf("calls %s, want both then only v4", got)
+	}
+}

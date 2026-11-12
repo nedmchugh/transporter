@@ -404,6 +404,16 @@ and compared word for word with the SPDX copy (`spdx/license-list-data`,
   finished with them. The channel holds 256 answers, because the library
   drops answers when it is full. The cost is that an answer is acted on at
   the end of its one-second query window rather than immediately.
+- **D-5b.6 Address-family fallback (found on the macOS CI runner).** The
+  library sends each query on IPv4 and then IPv6, and fails the whole query,
+  before listening for answers, if either send fails. On a host without an
+  IPv6 multicast route (the GitHub macOS runner, and some Macs) discovery
+  therefore failed within milliseconds even where IPv4 mDNS works, and the
+  "within 5s" message was wrong. `Find` now retries a failed query on IPv4
+  alone, then IPv6 alone, and uses the first family that works from then
+  on. If none works, it pauses 250 ms between rounds and keeps trying until
+  the timeout (DISC-3), then reports the last error. The library call is a
+  package variable so unit tests can simulate per-family send failures.
 
 ## 6. Dependencies (NFR-5)
 
