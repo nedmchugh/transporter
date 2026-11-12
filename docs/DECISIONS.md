@@ -180,6 +180,15 @@ Tool versions: golangci-lint v2.15.0, govulncheck (`golang.org/x/vuln`)
 v1.9.0, go-licenses v2.0.1, markdownlint-cli2 0.24.0, lychee 0.24.2,
 GoReleaser `~> v2`.
 
+Locally, `make docs-check` runs markdownlint-cli2 from the container image
+`docker.io/davidanson/markdownlint-cli2:v0.24.0`, pinned by digest
+`sha256:70ead7c0352d22d04bbe612cd96b54ec591538d8f4626cafe391bb2ecf3639ca`
+(pulled on 2026-11-11), so contributors need Docker rather than Node. The
+container gets the checkout read-only, no network, and SELinux labelling
+disabled (relabelling with `:Z` would change the labels on the user's
+files). CI keeps the markdownlint-cli2 action above, which runs the same
+version.
+
 ### 1.8 MPL-2.0 text (LIC-1)
 
 `LICENSE` was downloaded from <https://www.mozilla.org/media/MPL/2.0/index.txt>

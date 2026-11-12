@@ -9,8 +9,9 @@ CI gates changes, and the license terms for contributions.
   tested release automatically).
 - For `make lint`: [golangci-lint](https://golangci-lint.run/) v2.15.0 in
   `$(go env GOPATH)/bin` or on `PATH`.
-- Optional for `make docs-check`: `markdownlint-cli2` and `lychee`
-  (required in CI, skipped locally if missing).
+- Optional for `make docs-check`: Docker (Markdown lint runs from the pinned
+  `davidanson/markdownlint-cli2` image, so Node is not needed) and `lychee`.
+  Each is skipped locally if missing and required in CI.
 
 Other tools (`go-licenses`, `govulncheck`) run at pinned versions through
 `go run`, so nothing else needs installing.

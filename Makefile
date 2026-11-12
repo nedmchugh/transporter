@@ -12,9 +12,14 @@ GOLANGCI_LINT_VERSION := v2.15.0
 GOLANGCI_LINT         ?= $(GOBIN)/golangci-lint
 GO_LICENSES           := $(GO) run github.com/google/go-licenses/v2@v2.0.1
 GOVULNCHECK           := $(GO) run golang.org/x/vuln/cmd/govulncheck@v1.9.0
-# Override to run without a global install, e.g.
-#   make docs-check MARKDOWNLINT="npx --yes markdownlint-cli2@0.24.0"
-MARKDOWNLINT          ?= markdownlint-cli2
+# Markdown lint runs from the upstream container image by default, so no
+# local Node install is needed. The image is pinned by digest (verified by
+# pulling the v0.24.0 tag on 2026-11-11), matching the version CI's action
+# uses. Set MARKDOWNLINT to use a different command instead, e.g.
+#   make docs-check MARKDOWNLINT=markdownlint-cli2
+DOCKER                ?= docker
+MARKDOWNLINT_IMAGE    := docker.io/davidanson/markdownlint-cli2:v0.24.0@sha256:70ead7c0352d22d04bbe612cd96b54ec591538d8f4626cafe391bb2ecf3639ca
+MARKDOWNLINT          ?=
 LYCHEE                ?= lychee
 
 # LIC-3 allowlist, as SPDX identifiers understood by go-licenses.
@@ -91,10 +96,17 @@ vuln:
 # note; in CI (CI=true) they are required.
 docs-check:
 	$(GO) run ./tools/reqcheck .
-	@if command -v $(firstword $(MARKDOWNLINT)) >/dev/null 2>&1; then \
+	@# The container gets the repository read-only and no network. SELinux
+	@# labels are disabled for this container rather than relabelling the
+	@# checkout (:Z would change labels on the user's files).
+	@if [ -n "$(MARKDOWNLINT)" ]; then \
 		$(MARKDOWNLINT) '**/*.md' '#obsolete' '#node_modules'; \
-	elif [ "$$CI" = "true" ]; then echo "$(MARKDOWNLINT) not installed"; exit 1; \
-	else echo "docs-check: $(MARKDOWNLINT) not installed, skipping Markdown lint"; fi
+	elif command -v $(DOCKER) >/dev/null 2>&1; then \
+		$(DOCKER) run --rm --network none --security-opt label=disable \
+			--user "$$(id -u):$$(id -g)" -v "$(CURDIR):/workdir:ro" \
+			$(MARKDOWNLINT_IMAGE) '**/*.md' '#obsolete' '#node_modules'; \
+	elif [ "$$CI" = "true" ]; then echo "docs-check: $(DOCKER) not installed"; exit 1; \
+	else echo "docs-check: $(DOCKER) not installed, skipping Markdown lint"; fi
 	@if command -v $(LYCHEE) >/dev/null 2>&1 || [ -x $(GOBIN)/lychee ]; then \
 		L=$$(command -v $(LYCHEE) || echo $(GOBIN)/lychee); \
 		$$L --offline --no-progress --include-fragments --exclude-path obsolete '**/*.md'; \
