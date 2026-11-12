@@ -27,7 +27,7 @@ RUN go mod download && go mod verify
 # don't invalidate the build cache.
 COPY cmd/ cmd/
 COPY internal/ internal/
-COPY LICENSE THIRD_PARTY_LICENSES ./
+COPY LICENSE NOTICE THIRD_PARTY_LICENSES ./
 
 # VERSION comes from the wrapper script (git describe on the host), since
 # .git is not sent into the build.
@@ -45,7 +45,7 @@ RUN set -eu; \
             -ldflags "-s -w -X github.com/nedmchugh/transporter/internal/meta.Version=$VERSION" \
             -o "/out/transporter-$os-$arch$ext" ./cmd/transporter; \
     done; \
-    cp LICENSE THIRD_PARTY_LICENSES /out/; \
+    cp LICENSE NOTICE THIRD_PARTY_LICENSES /out/; \
     cd /out && sha256sum transporter-* > SHA256SUMS
 
 # The artifacts alone, in an empty image the script copies them out of.

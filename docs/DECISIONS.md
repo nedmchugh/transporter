@@ -557,14 +557,15 @@ dependency (and its `testify` dependency tree) for about 60 lines of code.
     with the same commands.
   - This is a developer convenience. Releases still come from GoReleaser
     in `release.yml`. A `docker-build` CI job keeps it working.
-- **D-9.7 NOTICE and warranty note (maintainer decision, 2026-11-12).** A
+- **D-9.8 NOTICE and warranty note (maintainer decision, 2026-11-12).** A
   `NOTICE` file gives the project's attribution (name and copyright
   holder) and ships in every release archive, and the README's License
   section states that the software is provided "as is", pointing to MPL-2.0
   sections 6 and 7. Both only restate what the license already provides:
   MPL-2.0 has its own warranty disclaimer and liability limit (sections 6
   and 7) and protects copyright notices in source files (section 3.4).
-  `LICENSE` is unchanged (LIC-1). Unlike Apache-2.0, MPL-2.0 does not
+  `LICENSE` is unchanged (LIC-1). The Docker build (D-9.7) copies it to
+  `dist/docker/` too. Unlike Apache-2.0, MPL-2.0 does not
   require recipients to keep a `NOTICE` file, so it is informational, and
   says so.
 
