@@ -513,15 +513,21 @@ dependency (and its `testify` dependency tree) for about 60 lines of code.
   change by `make license-check` in `ci.yml`, and vulnerabilities by
   `govulncheck`, so a private repository loses CodeQL's static analysis
   and the per-PR dependency diff, not the license or vulnerability gates.
+- **D-9.6 Copyright holder (maintainer decision, 2026-11-12).** The
+  copyright holder is Ned McHugh, stated once in the README's License
+  section ("Copyright © 2026 Ned McHugh"; 2026 is the year of the first
+  commit). `LICENSE` stays the verbatim MPL-2.0 text (LIC-1), and the file
+  header stays exactly as LIC-2 gives it, without a copyright line.
 
 ## 10. Maintainer open items
 
 These are for the maintainer to decide or do; the implementer did not
 decide them (requirements section 17).
 
-1. Fill in the copyright holder and the `MAINTAINER-CONTACT` placeholder
-   (`SECURITY.md`, `CODE_OF_CONDUCT.md`). The `OWNER` placeholder is done:
-   it is now `nedmchugh` (module path, `CODEOWNERS`, workflows, docs).
+1. Fill in the `MAINTAINER-CONTACT` placeholder (`SECURITY.md`,
+   `CODE_OF_CONDUCT.md`). Done: the `OWNER` placeholder is now `nedmchugh`
+   (module path, `CODEOWNERS`, workflows, docs), and the copyright holder
+   is Ned McHugh, stated in the README's License section (D-9.6).
 2. Review export-compliance obligations before distributing (LIC-8).
 3. Apply branch protection and repository settings
    (`docs/branch-protection.md`, CI-8), and enable private vulnerability

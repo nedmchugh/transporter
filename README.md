@@ -216,6 +216,8 @@ names, sizes and times of the files it receives. Read
 
 ## License
 
+Copyright © 2026 Ned McHugh.
+
 Transporter is licensed under the **Mozilla Public License 2.0**
 ([LICENSE](LICENSE)). MPL-2.0 is a file-level copyleft: you may combine
 Transporter with code under other licenses, but modifications to
