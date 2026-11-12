@@ -9,6 +9,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -41,6 +42,16 @@ func TestCheckDetectsGaps(t *testing.T) {
 	}
 	if len(problems) != 2 {
 		t.Fatalf("problems: %v", problems)
+	}
+	// The same files with CRLF line endings (a Windows checkout) give the
+	// same result.
+	for _, p := range []string{"docs/requirements.md", "docs/testing.md"} {
+		b, _ := os.ReadFile(filepath.Join(dir, p))
+		write(p, strings.ReplaceAll(string(b), "\n", "\r\n"))
+	}
+	crlf, err := check(dir)
+	if err != nil || strings.Join(crlf, "\n") != strings.Join(problems, "\n") {
+		t.Fatalf("CRLF: problems %v, err %v; want %v", crlf, err, problems)
 	}
 	if _, err := check(filepath.Join(dir, "missing")); err == nil {
 		t.Fatal("missing root accepted")

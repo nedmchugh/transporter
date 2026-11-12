@@ -12,6 +12,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -52,6 +53,10 @@ func check(root string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	// A Windows checkout may have CRLF line endings, and the row pattern
+	// anchors on the end of the line, so normalize before matching.
+	req = bytes.ReplaceAll(req, []byte("\r\n"), []byte("\n"))
+	doc = bytes.ReplaceAll(doc, []byte("\r\n"), []byte("\n"))
 	rows := map[string]string{}
 	for _, m := range rowRe.FindAllStringSubmatch(string(doc), -1) {
 		rows[m[1]] = m[2]

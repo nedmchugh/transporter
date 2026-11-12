@@ -205,8 +205,10 @@ func TestIdleTimeout(t *testing.T) {
 	}
 }
 
-// TestDirectoryCreatedEvenIfPresent covers TREE-4 with existing directories
-// and that directories are created 0755-masked (D-5.8, TREE-7).
+// TestExistingDirectories covers TREE-4 with existing directories and that
+// directories are created 0755-masked (D-5.8, TREE-7). Windows has no
+// POSIX permission bits (Go reports every directory as 0777 there), so the
+// mode is checked only elsewhere.
 func TestExistingDirectories(t *testing.T) {
 	testutil.CheckLeaks(t)
 	dest := filepath.Join(t.TempDir(), "dest")
@@ -228,7 +230,7 @@ func TestExistingDirectories(t *testing.T) {
 		t.Fatal(err)
 	}
 	fi, err := os.Stat(filepath.Join(dest, "d", "new"))
-	if err != nil || !fi.IsDir() || fi.Mode().Perm()&^0o755 != 0 {
+	if err != nil || !fi.IsDir() || (!isWindows() && fi.Mode().Perm()&^0o755 != 0) {
 		t.Fatalf("new dir: %v %v", fi.Mode(), err)
 	}
 }
