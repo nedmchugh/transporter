@@ -29,6 +29,7 @@ archives:
     # LIC-6: license texts ship in every archive.
     files:
       - LICENSE
+      - NOTICE
       - THIRD_PARTY_LICENSES
       - README.md
       - CHANGELOG.md

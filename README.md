@@ -238,6 +238,11 @@ MPL-covered files must stay under MPL-2.0 and be made available in source
 form when you distribute them. Third-party components and their licenses
 are listed in [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES). Contributions
 are accepted under the same license; see [CONTRIBUTING.md](CONTRIBUTING.md).
+Attribution for the project is in [NOTICE](NOTICE).
+
+Transporter is provided "as is", without warranty of any kind. See sections
+6 (Disclaimer of Warranty) and 7 (Limitation of Liability) of the
+[license](LICENSE).
 
 ## Export notice
 
