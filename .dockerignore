@@ -1,0 +1,8 @@
+# Keep the build context to what the build needs (Dockerfile).
+.git
+.github
+dist
+bin
+obsolete
+coverage.out
+*.test

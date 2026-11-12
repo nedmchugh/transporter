@@ -24,6 +24,7 @@ in sync with job names in `.github/workflows/`.
 | ci | `vuln` |
 | ci | `license` |
 | ci | `build` |
+| ci | `docker-build` |
 | ci | `mod-tidy` |
 | ci | `docs` |
 | codeql | `codeql` |
@@ -76,6 +77,7 @@ gh api -X PUT repos/nedmchugh/transporter/branches/main/protection \
       {"context": "vuln"},
       {"context": "license"},
       {"context": "build"},
+      {"context": "docker-build"},
       {"context": "mod-tidy"},
       {"context": "docs"},
       {"context": "codeql"},

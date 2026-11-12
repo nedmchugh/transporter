@@ -5,6 +5,11 @@ CI gates changes, and the license terms for contributions.
 
 ## Setup
 
+To build without installing anything but Docker, run
+`scripts/docker-build.sh` (or `make docker-build`): it cross-compiles every
+platform in a container into `dist/docker/`. Everything below is for
+developing and running the checks.
+
 - Go 1.26 or newer (the `toolchain` line in `go.mod` selects the latest
   tested release automatically).
 - For `make lint`: [golangci-lint](https://golangci-lint.run/) v2.15.0 in
@@ -21,6 +26,7 @@ Other tools (`go-licenses`, `govulncheck`) run at pinned versions through
 | Target | What it does |
 | --- | --- |
 | `build` | Build `bin/transporter`. |
+| `docker-build` | Build every platform inside Docker into `dist/docker/` (needs only Docker). |
 | `build-cross` | Cross-compile and vet for linux, darwin and windows on amd64 and arm64. |
 | `test` / `test-short` | Unit and integration tests with `-race -shuffle=on`. |
 | `cover` | Tests with coverage; fails below 85% of `internal/...`. |

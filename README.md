@@ -42,6 +42,19 @@ From source (Go 1.26 or newer):
 go install github.com/nedmchugh/transporter/cmd/transporter@latest
 ```
 
+From source with only Docker installed: in a checkout, run
+
+```console
+scripts/docker-build.sh
+```
+
+It builds Linux, macOS and Windows binaries for amd64 and arm64 in a
+container and copies them to `dist/docker/` (with `SHA256SUMS`, `LICENSE`
+and `THIRD_PARTY_LICENSES`), then names the one for your machine, such as
+`dist/docker/transporter-linux-amd64`. An optional argument sets a
+different output directory. The script needs a POSIX shell, so on Windows
+run it from Git Bash or WSL.
+
 ## Quick start
 
 1. On the machine that should **receive** files:

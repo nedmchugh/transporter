@@ -127,6 +127,21 @@ jobs:
       - name: Cross-compile linux/darwin/windows x amd64/arm64
         run: make build-cross
 
+  docker-build:
+    # Keeps the Docker build (Dockerfile, scripts/docker-build.sh) working.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build every platform in Docker
+        run: scripts/docker-build.sh
+      - name: Check the artifacts
+        run: |
+          cd dist/docker
+          sha256sum -c SHA256SUMS
+          test "$(ls transporter-* | wc -l)" -eq 6
+          ./transporter-linux-amd64 --version
+
   mod-tidy:
     runs-on: ubuntu-latest
     timeout-minutes: 10

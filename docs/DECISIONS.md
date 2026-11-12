@@ -532,6 +532,31 @@ dependency (and its `testify` dependency tree) for about 60 lines of code.
   The line comes directly after the LIC-2 block, so files still begin with
   exactly that block; `tools/spdxcheck` requires both. It uses a fixed year
   (first publication) and plain ASCII, so the check stays an exact match.
+- **D-9.7 Docker build (maintainer request, 2026-11-12).**
+  `scripts/docker-build.sh` (also `make docker-build`) builds every CROSS
+  platform inside Docker and copies the binaries, `SHA256SUMS`, `LICENSE`
+  and `THIRD_PARTY_LICENSES` to `dist/docker/`, so a developer needs only a
+  Docker engine. Choices:
+  - The Go image `golang:1.27.4-bookworm` matches `go.mod`'s toolchain
+    line and is pinned by digest
+    `sha256:4fa7c968ba93f1635670522dbb01a2c78150443e1385746924566079f36570ea`
+    (pulled 2026-11-12). Dependabot proposes updates. `GOTOOLCHAIN=local`
+    keeps the go command from fetching another toolchain.
+  - The builder runs on the host's architecture (`--platform=$BUILDPLATFORM`)
+    and cross-compiles with `CGO_ENABLED=0`, so no emulation is needed.
+  - `go mod verify` checks the module downloads against `go.sum`.
+  - The final stage is an empty image holding only `/out`. The script
+    creates a container from it without starting it and copies the files
+    out with `docker cp`, which works with any engine, without `buildx`
+    output options.
+  - `.git` is not sent into the build; the version (`git describe` on the
+    host, else `dev`) is passed as a build argument. Builds use
+    `-trimpath -buildvcs=false`.
+  - The script checks that the engine is installed and reachable (`docker
+    info`) and exits 1 with a hint otherwise. `DOCKER` selects another CLI
+    with the same commands.
+  - This is a developer convenience. Releases still come from GoReleaser
+    in `release.yml`. A `docker-build` CI job keeps it working.
 
 ## 10. Maintainer open items
 

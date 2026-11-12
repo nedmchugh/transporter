@@ -33,13 +33,18 @@ COVER_PKGS := $(shell $(GO) list ./internal/... | grep -v /internal/testutil | p
 FUZZTIME ?= 30s
 CROSS    := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
 
-.PHONY: all build build-cross test test-short e2e fuzz lint cover tidy tidy-check \
+.PHONY: all build build-cross docker-build test test-short e2e fuzz lint cover tidy tidy-check \
         vuln docs-check license-check third-party ci clean
 
 all: build
 
 build:
 	$(GO) build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN) ./cmd/transporter
+
+# Cross-compiles every platform inside Docker into dist/docker/, so only a
+# Docker engine is needed (scripts/docker-build.sh, Dockerfile).
+docker-build:
+	scripts/docker-build.sh
 
 build-cross:
 	@set -e; for p in $(CROSS); do \
