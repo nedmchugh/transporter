@@ -388,10 +388,22 @@ and compared word for word with the SPDX copy (`spdx/license-list-data`,
   complete the handshake (reported as an authentication failure). That peer
   receives handshake message 1, which allows an offline guessing attack
   against at least 88 bits of code entropy. See `security.md`.
-- **D-5b.4 Verification limits.** On the development machine, firewalld
-  blocks inbound UDP 5353, so live multicast tests skip as DISC-5 allows.
-  Record construction and answer matching are unit-tested without the
-  network. The live tests run wherever multicast works.
+- **D-5b.4 Verification limits.** Until 2026-11-11, firewalld on the
+  development machine blocked inbound UDP 5353, so the live multicast tests
+  skipped as DISC-5 allows. Record construction and answer matching are
+  unit-tested without the network. Since mDNS was allowed through the
+  firewall, the live tests (`TestAdvertiseAndFind`, `TestE2EDiscovery`)
+  run and pass there, repeatedly under `-race`. CI runners may still skip
+  them.
+- **D-5b.5 Reading library answers (found by the live tests).**
+  hashicorp/mdns v1.0.7 sends each answer as a `*ServiceEntry` and keeps
+  writing to that struct when later packets for the same service arrive.
+  `Find` originally matched answers on a separate goroutine while the query
+  ran, which is a data race. It now reads answers only after each
+  `QueryContext` call returns, on the same goroutine, so the library has
+  finished with them. The channel holds 256 answers, because the library
+  drops answers when it is full. The cost is that an answer is acted on at
+  the end of its one-second query window rather than immediately.
 
 ## 6. Dependencies (NFR-5)
 

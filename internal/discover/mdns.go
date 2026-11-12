@@ -126,21 +126,14 @@ func (m MDNS) Find(ctx context.Context, tag [code.TagSize]byte, timeout time.Dur
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	want := TagText(tag)
-	entries := make(chan *mdns.ServiceEntry, 16)
-	found := make(chan string, 1)
-	go func() {
-		for e := range entries {
-			addr, ok := match(e, want)
-			if !ok {
-				continue
-			}
-			select {
-			case found <- addr:
-				cancel()
-			default:
-			}
-		}
-	}()
+	// The library sends each answer as a pointer and keeps writing to the
+	// same struct when later packets for that service arrive, so answers
+	// are only read after QueryContext has returned, on this goroutine.
+	// Reading them concurrently is a data race (found by the live test
+	// under -race). The library drops answers when the channel is full,
+	// so it is sized well above any realistic number of receivers on one
+	// LAN; the query repeats in any case.
+	entries := make(chan *mdns.ServiceEntry, 256)
 	// The query is repeated within the timeout, because multicast packets
 	// are easily lost and a receiver may start a moment after the sender.
 	var qerr error
@@ -149,22 +142,16 @@ func (m MDNS) Find(ctx context.Context, tag [code.TagSize]byte, timeout time.Dur
 		params.Entries = entries
 		params.Timeout = min(time.Second, timeout)
 		params.Logger = m.libLogger()
-		if err := mdns.QueryContext(ctx, params); err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+		err := mdns.QueryContext(ctx, params)
+		for len(entries) > 0 {
+			if addr, ok := match(<-entries, want); ok {
+				return addr, nil
+			}
+		}
+		if err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
 			qerr = err
 			break
 		}
-		select {
-		case addr := <-found:
-			close(entries)
-			return addr, nil
-		default:
-		}
-	}
-	close(entries)
-	select {
-	case addr := <-found:
-		return addr, nil
-	default:
 	}
 	if qerr != nil {
 		return "", fmt.Errorf("%w: %w", ErrNotFound, qerr)
