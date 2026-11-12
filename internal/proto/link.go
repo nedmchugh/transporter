@@ -176,9 +176,14 @@ func (l *Link) Recv() (Message, error) {
 // within timeout, then closes the link. It never blocks much longer than
 // timeout: a write already stuck on a dead connection is cut short by moving
 // the write deadline, and Close unblocks anything left.
+//
+// If the message was written and the connection supports it, the close is
+// graceful (see gracefulCloser), so the peer can read the message; that
+// adds at most timeout.
 func (l *Link) Abort(m Message, timeout time.Duration) {
 	_ = l.fc.SetWriteDeadline(time.Now().Add(timeout))
 	sent := make(chan struct{})
+	wrote := false // written before sent is closed
 	go func() {
 		defer close(sent)
 		l.wmu.Lock()
@@ -190,7 +195,7 @@ func (l *Link) Abort(m Message, timeout time.Duration) {
 		}
 		l.wbuf = Append(l.wbuf[:0], m)
 		if l.fc.SetWriteDeadline(time.Now().Add(timeout)) == nil {
-			_ = l.fc.WriteFrame(l.wbuf)
+			wrote = l.fc.WriteFrame(l.wbuf) == nil
 		}
 	}()
 	t := time.NewTimer(2 * timeout)
@@ -199,8 +204,23 @@ func (l *Link) Abort(m Message, timeout time.Duration) {
 	case <-t.C:
 	}
 	t.Stop()
-	_ = l.Close()
+	select {
+	case <-sent:
+		if gc, ok := l.fc.(gracefulCloser); ok && wrote {
+			_ = l.closeWith(func() error { return gc.CloseGracefully(timeout) })
+			break
+		}
+		_ = l.Close()
+	default:
+		_ = l.Close()
+	}
 	<-sent
+}
+
+// gracefulCloser is implemented by connections that can close without
+// losing a final message still in flight to the peer (*secure.Conn).
+type gracefulCloser interface {
+	CloseGracefully(timeout time.Duration) error
 }
 
 // closedOr reports ErrLinkClosed if the error was caused by Close, so
@@ -215,11 +235,16 @@ func (l *Link) closedOr(err error) error {
 }
 
 // Close closes the connection and waits for the heartbeat goroutine.
-func (l *Link) Close() error {
+func (l *Link) Close() error { return l.closeWith(l.fc.Close) }
+
+// closeWith marks the link closed (stopping heartbeats and making later
+// operations report ErrLinkClosed), closes the connection with closeFn,
+// and waits for the heartbeat goroutine. Only the first call has effect.
+func (l *Link) closeWith(closeFn func() error) error {
 	var err error
 	l.closeOnce.Do(func() {
 		close(l.closed)
-		err = l.fc.Close()
+		err = closeFn()
 	})
 	<-l.done
 	return err

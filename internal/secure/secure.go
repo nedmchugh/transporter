@@ -351,6 +351,25 @@ func (c *Conn) SetWriteDeadline(t time.Time) error { return c.raw.SetWriteDeadli
 // writes.
 func (c *Conn) Close() error { return c.raw.Close() }
 
+// CloseGracefully is Close for after a final message, such as a fatal
+// ERROR. Closing a TCP socket while received data is still unread makes the
+// OS send a reset instead of a normal close, and on Windows a reset makes
+// the peer discard data it has received but not read yet: the final
+// message would be lost. So the write side is shut down first (the peer
+// sees the message, then end of stream), and whatever the peer still sends
+// is discarded until it closes or timeout passes. The raw reads bypass the
+// frame reader's buffer, so a ReadFrame blocked in another goroutine is
+// not disturbed beyond seeing the deadline or the close. Connections
+// without a write half-close (net.Pipe, test wrappers) are just closed.
+func (c *Conn) CloseGracefully(timeout time.Duration) error {
+	if cw, ok := c.raw.(interface{ CloseWrite() error }); ok && cw.CloseWrite() == nil {
+		if c.raw.SetReadDeadline(time.Now().Add(timeout)) == nil {
+			_, _ = io.Copy(io.Discard, c.raw)
+		}
+	}
+	return c.raw.Close()
+}
+
 // RemoteAddr returns the peer's network address.
 func (c *Conn) RemoteAddr() net.Addr { return c.raw.RemoteAddr() }
 

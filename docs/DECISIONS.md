@@ -367,6 +367,16 @@ and compared word for word with the SPDX copy (`spdx/license-list-data`,
   manifest invalid, as the spec says, even on case-sensitive filesystems. The
   sender runs the same check before connecting, to fail early with a clear
   message.
+- **D-5.18 Closing after a fatal ERROR (found on the Windows CI runner).**
+  When one side rejects the other (for example a manifest entry with
+  `..`), the peer's later frames are usually still unread. Closing a TCP
+  socket with unread data makes the OS send a reset, and on Windows a reset
+  makes the peer discard data it has received but not read, so the sender
+  never saw the receiver's ERROR (it reported a network error instead).
+  `Link.Abort` therefore closes gracefully once the ERROR is written: it
+  shuts down the write side, discards incoming data until the peer closes
+  or the abort timeout (1 s) passes, then closes. That adds at most 1 s to
+  an abort, bounded even against a peer that never closes.
 
 ## 5b. Discovery
 

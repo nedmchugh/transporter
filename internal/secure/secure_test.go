@@ -625,3 +625,80 @@ type bufConn struct {
 func (b *bufConn) Read(p []byte) (int, error)  { return b.Reader.Read(p) }
 func (b *bufConn) Write(p []byte) (int, error) { return len(p), nil }
 func (b *bufConn) Close() error                { return nil }
+
+// tcpPair returns a client and server Conn over real loopback TCP.
+func tcpPair(t *testing.T) (client, server *Conn) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	acc := make(chan net.Conn, 1)
+	go func() {
+		c, _ := ln.Accept()
+		acc <- c
+	}()
+	cr, err := net.Dial("tcp", ln.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	sr := <-acc
+	if sr == nil {
+		t.Fatal("accept failed")
+	}
+	c, s := connect(t, context.Background(), cr, sr, pairer(t, codeA), pairer(t, codeA))
+	if c.err != nil || s.err != nil {
+		t.Fatalf("client %v, server %v", c.err, s.err)
+	}
+	return c.c, s.c
+}
+
+// TestCloseGracefullyDeliversFinalFrame covers delivery of a fatal ERROR
+// (PROTO-2, PROTO-3, TEST-8 scenario 7) on every OS: a side that sends a
+// final frame while the peer's data is still unread must not reset the
+// connection, or the peer (on Windows) loses the final frame. The peer must see the frame and then
+// a clean end of stream. An abrupt Close here gives "connection reset".
+func TestCloseGracefullyDeliversFinalFrame(t *testing.T) {
+	testutil.CheckLeaks(t)
+	c, s := tcpPair(t)
+	// The client sends data the server never reads, as a sender's
+	// MANIFEST_END is still unread when the receiver rejects entry 0.
+	for range 3 {
+		if err := c.WriteFrame([]byte("unread")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	time.Sleep(50 * time.Millisecond) // let it reach the server's buffer
+	done := make(chan error, 1)
+	go func() {
+		if err := s.WriteFrame([]byte("final")); err != nil {
+			done <- err
+			return
+		}
+		done <- s.CloseGracefully(2 * time.Second)
+	}()
+	f, err := c.ReadFrame()
+	if err != nil || string(f) != "final" {
+		t.Fatalf("final frame: %q %v", f, err)
+	}
+	if _, err := c.ReadFrame(); !errors.Is(err, io.EOF) {
+		t.Fatalf("after final frame: %v, want clean EOF", err)
+	}
+	_ = c.Close()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestCloseGracefullyTimeout checks that a peer which never closes cannot
+// hold the connection open past the timeout.
+func TestCloseGracefullyTimeout(t *testing.T) {
+	testutil.CheckLeaks(t)
+	_, s := tcpPair(t)
+	start := time.Now()
+	_ = s.CloseGracefully(200 * time.Millisecond)
+	if took := time.Since(start); took < 150*time.Millisecond || took > 2*time.Second {
+		t.Fatalf("took %v", took)
+	}
+}
