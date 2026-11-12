@@ -3,6 +3,8 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// Copyright 2026 Ned McHugh
 
 // Package secure implements the encrypted channel: a Noise NNpsk0 handshake
 // (X25519, ChaCha20-Poly1305, BLAKE2s) keyed by the pairing secret, followed

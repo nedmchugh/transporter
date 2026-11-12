@@ -1,5 +1,6 @@
 #!/bin/sh
 # SPDX-License-Identifier: MPL-2.0
+# Copyright 2026 Ned McHugh
 #
 # Regenerates THIRD_PARTY_LICENSES from the module cache, so license texts
 # are copied verbatim from each dependency rather than retyped (LIC-6).

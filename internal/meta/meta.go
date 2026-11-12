@@ -3,6 +3,8 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// Copyright 2026 Ned McHugh
 
 // Package meta holds the project name and build metadata. The project name
 // appears only here (NFR-7), so renaming the tool is a one-line change.

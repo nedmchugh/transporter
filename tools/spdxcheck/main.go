@@ -3,10 +3,13 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// Copyright 2026 Ned McHugh
 
 // Command spdxcheck verifies that every .go file in the repository begins
-// with the MPL-2.0 SPDX header required by LIC-2, and that none carries the
-// MPL Exhibit B notice (which LIC-2 forbids).
+// with the MPL-2.0 SPDX header required by LIC-2 followed by the copyright
+// line (docs/DECISIONS.md D-9.6), and that none carries the MPL Exhibit B
+// notice (which LIC-2 forbids).
 //
 // Usage: go run ./tools/spdxcheck [ROOT]
 package main
@@ -27,6 +30,13 @@ const Header = `// SPDX-License-Identifier: MPL-2.0
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
+`
+
+// Copyright is the line that follows Header in every Go file. It comes
+// after the LIC-2 text rather than inside it, so files still begin with
+// exactly that text. 2026 is the year of first publication.
+const Copyright = `//
+// Copyright 2026 Ned McHugh
 `
 
 // forbidden must not appear in source files (LIC-2). It is split so this
@@ -50,7 +60,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, b)
 	}
 	if len(bad) > 0 {
-		fmt.Fprintf(os.Stderr, "spdxcheck: %d file(s) lack the MPL-2.0 header (see docs/requirements.md LIC-2)\n", len(bad))
+		fmt.Fprintf(os.Stderr, "spdxcheck: %d file(s) lack the MPL-2.0 header or copyright line (see docs/requirements.md LIC-2, docs/DECISIONS.md D-9.6)\n", len(bad))
 		os.Exit(1)
 	}
 }
@@ -80,6 +90,8 @@ func check(root string) ([]string, error) {
 		switch {
 		case !bytes.HasPrefix(b, []byte(Header)):
 			bad = append(bad, path+": missing or altered SPDX/MPL-2.0 header")
+		case !bytes.HasPrefix(b, []byte(Header+Copyright)):
+			bad = append(bad, path+": missing copyright line after the MPL-2.0 header")
 		case bytes.Contains(b, []byte(forbidden)):
 			bad = append(bad, path+": contains the \""+forbidden+"\" notice")
 		}

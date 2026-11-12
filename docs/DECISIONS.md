@@ -516,8 +516,12 @@ dependency (and its `testify` dependency tree) for about 60 lines of code.
 - **D-9.6 Copyright holder (maintainer decision, 2026-11-12).** The
   copyright holder is Ned McHugh, stated once in the README's License
   section ("Copyright © 2026 Ned McHugh"; 2026 is the year of the first
-  commit). `LICENSE` stays the verbatim MPL-2.0 text (LIC-1), and the file
-  header stays exactly as LIC-2 gives it, without a copyright line.
+  commit). `LICENSE` stays the verbatim MPL-2.0 text (LIC-1). At the
+  maintainer's request, every `.go` file (and the one shell script) also
+  carries `Copyright 2026 Ned McHugh`, as permitted by MPL-2.0 Exhibit A.
+  The line comes directly after the LIC-2 block, so files still begin with
+  exactly that block; `tools/spdxcheck` requires both. It uses a fixed year
+  (first publication) and plain ASCII, so the check stays an exact match.
 
 ## 10. Maintainer open items
 
@@ -527,7 +531,8 @@ decide them (requirements section 17).
 1. Fill in the `MAINTAINER-CONTACT` placeholder (`SECURITY.md`,
    `CODE_OF_CONDUCT.md`). Done: the `OWNER` placeholder is now `nedmchugh`
    (module path, `CODEOWNERS`, workflows, docs), and the copyright holder
-   is Ned McHugh, stated in the README's License section (D-9.6).
+   is Ned McHugh, in the README's License section and every file header
+   (D-9.6).
 2. Review export-compliance obligations before distributing (LIC-8).
 3. Apply branch protection and repository settings
    (`docs/branch-protection.md`, CI-8), and enable private vulnerability

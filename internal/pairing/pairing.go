@@ -3,6 +3,8 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// Copyright 2026 Ned McHugh
 
 // Package pairing abstracts how the handshake secret is obtained from user
 // input (SEC-14).

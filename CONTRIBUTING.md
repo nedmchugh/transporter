@@ -36,8 +36,9 @@ Other tools (`go-licenses`, `govulncheck`) run at pinned versions through
 
 ## Expectations for changes
 
-- Every `.go` file starts with the MPL-2.0 SPDX header (see any existing
-  file); `make license-check` enforces it. Do not add the MPL "Incompatible
+- Every `.go` file starts with the MPL-2.0 SPDX header followed by the
+  project's copyright line (copy them from any existing file);
+  `make license-check` enforces both. Do not add the MPL "Incompatible
   With Secondary Licenses" notice.
 - Tests reference the requirement IDs they cover (for example
   `// TestX covers SEC-7`), and `docs/testing.md` maps every MUST
