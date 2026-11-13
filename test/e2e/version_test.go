@@ -12,6 +12,7 @@ package e2e
 
 import (
 	"os/exec"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -24,5 +25,23 @@ func TestVersion(t *testing.T) {
 	}
 	if !strings.HasPrefix(string(out), "transporter ") {
 		t.Fatalf("unexpected output %q", out)
+	}
+}
+
+// TestBinaryKeepsDeadcodeElimination guards the binary size (NFR-5,
+// DECISIONS.md D-9.9): if reflect's MethodByName is reachable (cobra
+// templates, text/template), the linker keeps every exported method and
+// the binary grows by megabytes. Cobra avoids this only while no template
+// is customized, so this fails if one is.
+func TestBinaryKeepsDeadcodeElimination(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("go tool nm does not read the Windows binary reliably")
+	}
+	out, err := exec.Command("go", "tool", "nm", binPath).CombinedOutput()
+	if err != nil {
+		t.Fatalf("go tool nm: %v\n%s", err, out)
+	}
+	if strings.Contains(string(out), "MethodByName") {
+		t.Fatal("the binary links reflect.Value.MethodByName; was a cobra template customized?")
 	}
 }

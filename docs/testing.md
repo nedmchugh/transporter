@@ -219,7 +219,7 @@ repository contents are verified by inspection of the named files.
 | NFR-1 | CI: `test` and `e2e` jobs on ubuntu, macOS and Windows; `build` job cross-compiles linux/darwin/windows x amd64/arm64 (`make build-cross`). |
 | NFR-2 | Inspection and CI: `go.mod` (`go 1.26.0`), DECISIONS.md D-1.1 (os.Root verification against the Go 1.24/1.25 release notes) and D-1.3 (the maintainer raised the minimum to 1.26); CI tests Go 1.26.x and 1.27.x with `GOTOOLCHAIN=local`. |
 | NFR-4 | `test/e2e` TestE2ELargeFile |
-| NFR-5 | Inspection: DECISIONS.md sections 1 and 6 justify each dependency. |
+| NFR-5 | Inspection: DECISIONS.md sections 1 and 6 justify each dependency; `test/e2e` TestBinaryKeepsDeadcodeElimination guards the binary size (D-9.9). |
 | NFR-6 | Lint (`revive` exported-comment rule, `errorlint`, `errcheck`) and review. |
 | NFR-7 | Inspection: `internal/meta.Name` is the only use of the name as a name; module path `github.com/nedmchugh/transporter` (DECISIONS.md D-2.2, D-2.4). |
 | NFR-8 | Inspection: README "Not affiliated" section; no franchise material in the repository. |

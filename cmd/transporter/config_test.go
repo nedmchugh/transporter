@@ -82,16 +82,14 @@ receive:
 	}
 }
 
-// TestConfigExplicitPath covers --config with each accepted format, and
-// that an explicitly named file must exist.
+// TestConfigExplicitPath covers --config with each accepted extension,
+// and that an explicitly named file must exist.
 func TestConfigExplicitPath(t *testing.T) {
 	env, _, errb := configEnv(t)
 	dir := t.TempDir()
 	for name, content := range map[string]string{
 		"c.yaml": "receive:\n  port: 4001\n",
-		"c.yml":  "receive:\n  port: 4001\n",
-		"c.toml": "[receive]\nport = 4001\n",
-		"c.json": `{"receive": {"port": 4001}}`,
+		"c.YML":  "receive:\n  port: \"4001\"\n",
 	} {
 		p := filepath.Join(dir, name)
 		writeConfig(t, p, content)
@@ -115,7 +113,8 @@ func TestConfigRejects(t *testing.T) {
 		{"code", "send", "send:\n  code: abandon-ability\n", "the code cannot be set in a config file"},
 		{"code-file", "send", "send:\n  code-file: /tmp/x\n", "the code cannot be set"},
 		{"top-level code", "send", "code: abandon-ability\n", "the code cannot be set"},
-		{"unknown key", "send", "sned:\n  to: h:1\n", `unknown setting "sned.to"`},
+		{"unknown key", "send", "sned:\n  to: h:1\n", `unknown setting "sned"`},
+		{"unknown key in section", "send", "send:\n  tto: h:1\n", `unknown setting "send.tto"`},
 		{"global flag in section", "send", "send:\n  verbose: 1\n", `unknown setting "send.verbose"`},
 		{"receive flag under send", "send", "send:\n  port: 1\n", `unknown setting "send.port"`},
 		{"bad duration", "receive", "receive:\n  idle-timeout: 600\n", "missing unit"},
@@ -123,6 +122,17 @@ func TestConfigRejects(t *testing.T) {
 		{"list", "receive", "receive:\n  port: [1, 2]\n", "must be a single value"},
 		{"range checked like a flag", "receive", "receive:\n  port: 70000\n", "--port must be between"},
 		{"syntax", "send", "send: [\n", "config file"},
+		{"duplicate key", "send", "send:\n  to: a:1\n  to: b:2\n", "send.to is already set on line 2"},
+		{"repeated section", "send", "send:\n  to: a:1\nsend:\n  verify: true\n", `"send" appears more than once`},
+		{"duplicate top-level", "send", "verbose: 1\nverbose: 2\n", "verbose is already set"},
+		{"alias", "send", "x: &a h:1\nsend:\n  to: *a\n", `unknown setting "x"`},
+		{"alias value", "send", "send:\n  to: &a h:1\n  verify: *a\n", "must be a single value"},
+		{"not a mapping", "send", "- verbose\n", "expected settings"},
+		{"section not a mapping", "send", "send: true\n", `"send" must hold settings`},
+		{"null value", "send", "send:\n  to:\n", "must be a single value"},
+		{"line number", "receive", "verbose: 1\nreceive:\n  port: 70000\n", "--port must be between"},
+		{"line number in error", "receive", "verbose: 1\nreceive:\n\n  idle-timeout: 5\n", "line 4: receive.idle-timeout"},
+		{"case matters", "send", "Send:\n  to: h:1\n", `unknown setting "Send"`},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -139,14 +149,21 @@ func TestConfigRejects(t *testing.T) {
 	}
 }
 
-// TestConfigUnsupportedType checks that only the documented formats are
-// read.
+// TestConfigUnsupportedType checks that only YAML files are read, and
+// that a file far larger than any real config is refused.
 func TestConfigUnsupportedType(t *testing.T) {
-	env, _, errb := configEnv(t)
-	p := filepath.Join(t.TempDir(), "c.ini")
-	writeConfig(t, p, "x=1\n")
-	if _, exit := capture(t, env, "--config", p, "send", "a"); exit != 2 || !strings.Contains(errb.String(), "unsupported type") {
-		t.Fatalf("exit %d\n%s", exit, errb)
+	for _, name := range []string{"c.toml", "c.json", "c.ini", "c"} {
+		env, _, errb := configEnv(t)
+		p := filepath.Join(t.TempDir(), name)
+		writeConfig(t, p, "{}\n")
+		if _, exit := capture(t, env, "--config", p, "send", "a"); exit != 2 || !strings.Contains(errb.String(), "unsupported type") {
+			t.Errorf("%s: exit %d\n%s", name, exit, errb)
+		}
+	}
+	env, path, errb := configEnv(t)
+	writeConfig(t, path, "# "+strings.Repeat("x", maxConfigSize)+"\n")
+	if _, exit := capture(t, env, "send", "a"); exit != 2 || !strings.Contains(errb.String(), "larger than") {
+		t.Fatalf("large file: exit %d\n%s", exit, errb)
 	}
 }
 
@@ -179,9 +196,11 @@ func TestConfigPermissions(t *testing.T) {
 // still works when the config file is broken.
 func TestConfigEmptyAndHelp(t *testing.T) {
 	env, path, errb := configEnv(t)
-	writeConfig(t, path, "send:\nreceive:\n")
-	if _, exit := capture(t, env, "send", "a"); exit != 0 {
-		t.Fatalf("empty sections: exit %d\n%s", exit, errb)
+	for _, content := range []string{"send:\nreceive:\n", "", "# only a comment\n", "~\n"} {
+		writeConfig(t, path, content)
+		if _, exit := capture(t, env, "send", "a"); exit != 0 {
+			t.Fatalf("%q: exit %d\n%s", content, exit, errb)
+		}
 	}
 	writeConfig(t, path, "bogus: 1\n")
 	for _, args := range [][]string{{"help"}, {"--help"}, {"send", "--help"}, {"--version"}} {
@@ -195,7 +214,8 @@ func TestConfigEmptyAndHelp(t *testing.T) {
 // commands define, so every flag except the code ones can be configured.
 func TestConfigKeysMatchFlags(t *testing.T) {
 	for _, k := range knownConfigKeys() {
-		if err := checkConfigKey(k); err != nil {
+		sec, name := splitKey(k)
+		if err := checkConfigKey(sec, name, k); err != nil {
 			t.Errorf("%s: %v", k, err)
 		}
 	}
@@ -213,4 +233,34 @@ func TestConfigKeysMatchFlags(t *testing.T) {
 	for k := range want {
 		t.Errorf("missing key %s", k)
 	}
+}
+
+// FuzzParseConfig checks that any file content either parses into known
+// keys with single values or is rejected, without panicking.
+func FuzzParseConfig(f *testing.F) {
+	for _, s := range []string{
+		"verbose: 1\nsend:\n  to: h:1\n  verify: true\nreceive:\n  port: 4000\n",
+		"send:\nreceive:\n", "~", "", "- a\n", "send: [\n", "x: &a 1\ny: *a\n",
+		"send:\n  code: abandon\n", "send:\n  to: a\n  to: b\n",
+	} {
+		f.Add([]byte(s))
+	}
+	known := map[string]bool{}
+	for _, k := range knownConfigKeys() {
+		known[k] = true
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		settings, err := parseConfig(data)
+		if err != nil {
+			return
+		}
+		for k, s := range settings {
+			if !known[k] {
+				t.Fatalf("accepted unknown key %q", k)
+			}
+			if s.line < 1 {
+				t.Fatalf("%s: line %d", k, s.line)
+			}
+		}
+	})
 }

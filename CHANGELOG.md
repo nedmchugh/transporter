@@ -18,9 +18,8 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - mDNS discovery (`_transporter._tcp`) with `--to` as an always-available
   alternative.
 - Progress on stderr, final summaries, and documented exit codes.
-- Command-line parsing with cobra, and an optional config file (YAML, TOML
-  or JSON, read with viper) for your own flag defaults: by default
-  `transporter/config.yaml` in the user config directory, or `--config
-  PATH`.
+- Command-line parsing with cobra, and an optional YAML config file for
+  your own flag defaults: by default `transporter/config.yaml` in the user
+  config directory, or `--config PATH`.
 - Documentation: README, architecture, protocol, security, testing, and the
   decisions log.

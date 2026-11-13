@@ -166,7 +166,7 @@ directory if it exists:
 | macOS | `~/Library/Application Support/transporter/config.yaml` |
 | Windows | `%AppData%\transporter\config.yaml` |
 
-Or name a file with `--config PATH` (YAML, TOML or JSON, chosen by the
+Or name another file with `--config PATH` (YAML, with a `.yaml` or `.yml`
 extension). Keys are the flag names without `--`, under `send:` or
 `receive:`; only `verbose` goes at the top level:
 
@@ -183,8 +183,9 @@ receive:
 
 A flag on the command line always wins over the file (for example
 `--verify=false`), and the file wins over the built-in defaults. Values are
-checked exactly as on the command line. An unknown key is an error, so a
-typo is reported rather than ignored. The code (and `code-file`) cannot be
+checked exactly as on the command line, and errors give the line number.
+An unknown or repeated key is an error, so a typo is reported rather than
+ignored. The code (and `code-file`) cannot be
 set in the file. On Linux and macOS the file must not be writable by other
 users (`chmod go-w`), because settings like `overwrite` change what a
 transfer does.

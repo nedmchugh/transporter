@@ -97,9 +97,9 @@ Global flags:
   -h, --help      show help (also: %[1]s send --help, %[1]s receive --help)
 
 Config file:
-  Default values for flags can be set in %[2]s
-  (YAML; with --config also TOML or JSON). Flags on the command line win
-  over the file, and the file wins over built-in defaults. Example:
+  Default values for flags can be set in a YAML file, by default
+  %[2]s. Flags on the command line win over the
+  file, and the file wins over built-in defaults. Example:
 
     verbose: 1
     send:

@@ -439,21 +439,20 @@ and compared word for word with the SPDX copy (`spdx/license-list-data`,
 | golang.org/x/text | BSD-3-Clause | NFC normalization and case folding (TREE-9). |
 | golang.org/x/term | BSD-3-Clause | No-echo code prompt and terminal detection (CODE-8, CLI-2). |
 | golang.org/x/sys | BSD-3-Clause | Required by x/term; also free-space query (RCV-9). |
-| github.com/spf13/cobra | Apache-2.0 | Command-line parsing, at the maintainer's request (D-9.9). |
+| github.com/spf13/cobra | Apache-2.0 | Command-line parsing, at the maintainer's request (D-9.9). Widely used (Docker, Kubernetes, Hugo, GitHub CLI). |
 | github.com/spf13/pflag | BSD-3-Clause | Flag parsing used by cobra; also used directly to define the flags. |
 | github.com/inconshreveable/mousetrap | Apache-2.0 | Required by cobra (on Windows, detects a double-click start from Explorer). |
-| github.com/spf13/viper | MIT | Config file of flag defaults, at the maintainer's request (D-9.9). |
-| github.com/spf13/afero, spf13/cast, go-viper/mapstructure/v2, sagikazarmark/locafero, sourcegraph/conc, fsnotify/fsnotify, subosito/gotenv | Apache-2.0 (afero), BSD-3-Clause (fsnotify), MIT (the rest) | Required by viper. Transporter does not use file watching or `.env` files, but viper links them in. |
-| go.yaml.in/yaml/v3, pelletier/go-toml/v2 | MIT (yaml/v3 also carries an Apache-2.0 NOTICE, copied into THIRD_PARTY_LICENSES) | Required by viper to parse YAML and TOML config files. |
+| go.yaml.in/yaml/v3 | MIT (with an Apache-2.0 NOTICE, copied into THIRD_PARTY_LICENSES) | Parses the YAML config file (D-9.9); no dependencies of its own. Maintained by the YAML organization (github.com/yaml/go-yaml); v3.0.6, 2026-10-13. |
 
 Verified with `go-licenses report ./cmd/transporter` (phase 7). The binary's
 dependency closure is noise (BSD-3-Clause), hashicorp/mdns (MIT),
 klauspost/cpuid/v2 (MIT), miekg/dns (BSD-3-Clause), x/crypto, x/net, x/sys,
 x/term and x/text (BSD-3-Clause), and blake3 (MIT). All are on the LIC-3
-allowlist. Cobra v1.10.2 and viper v1.21.0 (with pflag v1.0.10) were the
-latest releases on proxy.golang.org on 2026-11-12, all active spf13
-projects; `go-licenses report` on a probe module confirmed that every
-module they add is on the allowlist. `golang.org/x/sync` appears in `go.mod` only as a requirement of
+allowlist. Cobra v1.10.2 (with pflag v1.0.10) and yaml/v3 v3.0.6 were the
+latest releases on proxy.golang.org on 2026-11-12; `go-licenses check`
+confirms they are on the allowlist. `gopkg.in/check.v1` and `kr/pretty`
+appear in `go.mod` only as yaml/v3's test requirements and are not
+compiled into the binary. `golang.org/x/sync` appears in `go.mod` only as a requirement of
 miekg/dns and is not compiled into the binary.
 
 The goroutine leak check (TEST-6) is a small in-repo helper
@@ -577,37 +576,58 @@ dependency (and its `testify` dependency tree) for about 60 lines of code.
   `dist/docker/` too. Unlike Apache-2.0, MPL-2.0 does not
   require recipients to keep a `NOTICE` file, so it is informational, and
   says so.
-- **D-9.9 Cobra and viper; a config file of defaults (maintainer request,
+- **D-9.9 Cobra, and a YAML config file of defaults (maintainer request,
   2026-11-12).** The maintainer asked for command-line parsing with cobra
-  and a viper config file for user-set defaults. This departs from NG-5
-  (no configuration files) and from the CLI-1 recommendation to use the
+  and a config file for user-set defaults. This departs from NG-5 (no
+  configuration files) and from the CLI-1 recommendation to use the
   standard `flag` package; the request is the justification CLI-1 asks
-  for. The cost (NFR-5): 12 more modules in the binary (22 in all, listed
-  in section 6), and the stripped Linux binary grows from 6.3 MB to
-  10.8 MB. Startup is about 4 ms slower. Choices, all on the cautious side:
+  for.
+  - *Viper was tried and dropped.* It worked, but added 12 modules to the
+    binary (file watching, `.env`, TOML, a virtual filesystem, none of
+    them used) for what is a small file of defaults. The maintainer chose
+    a single YAML parser instead. Cobra stays: it is the common choice for
+    Go command-line tools.
+  - *Cost (NFR-5)*: 4 modules in the binary (cobra, pflag, mousetrap on
+    Windows, yaml/v3): 13 in all, up from 10. The stripped Linux binary
+    grows from 6.3 MB to 7.1 MB.
+  - *Binary size trap*: cobra's version and usage output goes through
+    `text/template` whenever a template is customized, which makes
+    `reflect.Value.MethodByName` reachable and disables most dead-code
+    elimination in the linker (with viper and a version template the
+    binary was 10.8 MB; without viper but with the template, 9.8 MB). So
+    `--version` is handled by the program, cobra's `Version` field is left
+    unset, help is printed by a custom help function, and no template is
+    set. `TestBinaryKeepsDeadcodeElimination` (e2e) fails if
+    `MethodByName` appears in the binary again.
   - *Precedence*: command line, then config file, then built-in default.
     Each value from the file is applied through the flag's own parser and
     the same range checks, so the file accepts exactly what the command
-    line accepts. Viper is used only to read and parse the file.
+    line accepts.
+  - *Parsing*: the file is decoded into YAML's node tree, not Go values, so
+    each value keeps its exact text (no YAML type conversion before the
+    flag parser) and its line number for errors. Only `.yaml`/`.yml`
+    files are read, at most 64 KiB. Lists, maps, aliases and null values
+    are errors, as are duplicate keys and repeated sections (decoding to a
+    node tree does not reject those on its own). `FuzzParseConfig` covers
+    the parser.
   - *Location*: `transporter/config.yaml` in the user's config directory
     (`os.UserConfigDir`: `~/.config` on Linux, `~/Library/Application
     Support` on macOS, `%AppData%` on Windows), or the file named by
     `--config`. A missing default file is normal; a missing `--config`
-    file is an error. Only YAML, TOML and JSON are accepted, by extension,
-    to keep the reachable parsers few.
+    file is an error.
   - *Keys*: the flag names, under `send:` or `receive:` (plus top-level
-    `verbose`). Unknown keys are errors, so a typo is not silently
-    ignored. The code and `--code-file` cannot be set: CODE-8 fixes the
-    code's sources, and a code in a file of defaults would be a long-lived
-    secret on disk. The error never echoes the value.
+    `verbose`), case-sensitive. Unknown keys are errors, so a typo is not
+    silently ignored. The code and `code-file` cannot be set: CODE-8 fixes
+    the code's sources, and a code in a file of defaults would be a
+    long-lived secret on disk. The error never echoes the value.
   - *Permissions*: on Unix a config file writable by group or others is
     refused, as ssh does, because defaults such as `overwrite` or `to`
     change what a transfer does.
-  - *Not used*: viper's environment-variable binding (no new variables;
-    `TRANSPORTER_CODE` is unchanged), remote config and file watching.
+  - *No environment variables* are added; `TRANSPORTER_CODE` is unchanged.
   - *Help*: the help texts stay hand-written, so every flag still states
     its default in words (CLI-5); pflag's generated usage omits defaults
-    for zero values. Help works even when the config file is broken.
+    for zero values. Help and `--version` work even when the config file
+    is broken.
   - *Tests*: the e2e suite points the user config directory at an empty
     directory, so a developer's own config file cannot change results.
 
