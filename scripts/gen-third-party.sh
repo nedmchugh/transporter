@@ -20,7 +20,7 @@ out of date.
 HDR
 printf '%s\n' '----------------------------------------------------------------------'
 cat "$here/third-party-wordlist.txt"
-for m in $($GO list -deps -f '{{with .Module}}{{if not .Main}}{{.Path}}@{{.Version}}{{end}}{{end}}' ./cmd/transporter | sort -u); do
+for m in $($GO list -deps -f '{{with .Module}}{{if not .Main}}{{.Path}}@{{.Version}}{{end}}{{end}}' ./cmd/transporter | LC_ALL=C sort -u); do
 	path=${m%@*}
 	ver=${m#*@}
 	dir=$($GO list -m -f '{{.Dir}}' "$path")
