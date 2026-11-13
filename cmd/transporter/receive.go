@@ -10,12 +10,13 @@ package main
 
 import (
 	"context"
-	"errors"
-	"flag"
 	"fmt"
 	"net"
 	"strconv"
 	"time"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/nedmchugh/transporter/internal/code"
 	"github.com/nedmchugh/transporter/internal/fail"
@@ -55,57 +56,50 @@ type receiveFlags struct {
 	verify      bool
 	idleTimeout time.Duration
 	noMDNS      bool
-	verbose     verbosity
 	dest        string
 }
 
-func parseReceive(args []string) (*receiveFlags, error) {
-	f := &receiveFlags{idleTimeout: recv.DefaultIdleTimeout}
-	fs := flag.NewFlagSet("receive", flag.ContinueOnError)
-	fs.SetOutput(nopWriter{})
-	fs.IntVar(&f.port, "port", 0, "")
-	fs.StringVar(&f.bind, "bind", "", "")
-	fs.BoolVar(&f.overwrite, "overwrite", false, "")
-	fs.BoolVar(&f.verify, "verify", false, "")
-	fs.DurationVar(&f.idleTimeout, "idle-timeout", recv.DefaultIdleTimeout, "")
-	fs.BoolVar(&f.noMDNS, "no-mdns", false, "")
-	fs.Var(&f.verbose, "v", "")
-	fs.Var(&f.verbose, "verbose", "")
-	pos, err := parseInterspersed(fs, args)
-	if err != nil {
-		return nil, err
-	}
-	switch len(pos) {
+// addReceiveFlags defines the receive flags (RCV-3). Help text lives in
+// receiveUsage; the names here are also the config file keys under
+// "receive" (configKeys).
+func addReceiveFlags(fs *pflag.FlagSet) {
+	fs.Int("port", 0, "")
+	fs.String("bind", "", "")
+	fs.Bool("overwrite", false, "")
+	fs.Bool("verify", false, "")
+	fs.Duration("idle-timeout", recv.DefaultIdleTimeout, "")
+	fs.Bool("no-mdns", false, "")
+}
+
+// receiveFlagsFrom reads the parsed receive flags (command line and config
+// file already merged) and the destination argument, and checks them.
+func receiveFlagsFrom(c *cobra.Command, args []string) (*receiveFlags, error) {
+	fl := c.Flags()
+	f := &receiveFlags{}
+	f.port, _ = fl.GetInt("port")
+	f.bind, _ = fl.GetString("bind")
+	f.overwrite, _ = fl.GetBool("overwrite")
+	f.verify, _ = fl.GetBool("verify")
+	f.idleTimeout, _ = fl.GetDuration("idle-timeout")
+	f.noMDNS, _ = fl.GetBool("no-mdns")
+	switch len(args) {
 	case 0:
 		f.dest = "."
 	case 1:
-		f.dest = pos[0]
+		f.dest = args[0]
 	default:
-		return nil, fmt.Errorf("receive takes at most one destination directory, got %d arguments", len(pos))
+		return nil, usagef("receive takes at most one destination directory, got %d arguments", len(args))
 	}
 	if f.port < 0 || f.port > 65535 {
-		return nil, fmt.Errorf("--port must be between 0 and 65535")
+		return nil, usagef("--port must be between 0 and 65535")
 	}
 	if f.idleTimeout < 0 {
-		return nil, fmt.Errorf("--idle-timeout must not be negative")
+		return nil, usagef("--idle-timeout must not be negative")
 	}
 	return f, nil
 }
 
-type nopWriter struct{}
-
-func (nopWriter) Write(p []byte) (int, error) { return len(p), nil }
-
-func runReceive(ctx context.Context, args []string, verbose int, env *environment) int {
-	f, err := parseReceive(args)
-	if err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			fmt.Fprintf(env.stderr, receiveUsage, meta.Name)
-			return fail.ExitOK
-		}
-		return usageError(env, err.Error())
-	}
-	verbose += int(f.verbose)
+func runReceive(ctx context.Context, f *receiveFlags, verbose int, env *environment) int {
 	prog := newProgress(env)
 	log := newLogger(prog.Writer(), verbose)
 

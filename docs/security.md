@@ -157,6 +157,13 @@ marshaling path, logs never include it, error messages name at most the
 single mistyped word, and mDNS carries only the derived tag. An end-to-end
 test checks all output at every verbosity.
 
+The optional config file of defaults (README, "Config file") cannot hold
+the code or `code-file`: a code stored there would be a long-lived secret
+on disk, and CODE-8 fixes the code's sources. Because the file can change
+what a transfer does (for example `overwrite` or `to`), it is refused on
+Unix if group or others can write it. It is read-only state: Transporter
+never writes it (DECISIONS.md D-9.9).
+
 ## 7. Known limitations
 
 - **Not independently audited** (see the top of this document).

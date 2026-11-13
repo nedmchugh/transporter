@@ -17,8 +17,6 @@ package main
 
 import (
 	"context"
-	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"log/slog"
@@ -61,6 +59,7 @@ func realMain() int {
 			b, err := term.ReadPassword(int(os.Stdin.Fd()))
 			return string(b), err
 		},
+		userConfigDir: os.UserConfigDir,
 	}
 	return run(ctx, os.Args[1:], env)
 }
@@ -73,6 +72,8 @@ type environment struct {
 	getenv       func(string) string
 	isTerminal   func(f any) bool
 	readPassword func() (string, error)
+	// userConfigDir locates the default config file (os.UserConfigDir).
+	userConfigDir func() (string, error)
 }
 
 const globalUsage = `Usage:
@@ -89,80 +90,32 @@ Commands:
 
 Global flags:
   -v, --verbose   more log output on stderr (repeat for debug: -v -v)
+                  (default: warnings and errors only)
+  --config PATH   read default flag values from PATH (default: the file
+                  below, if it exists)
   --version       print the version and exit
   -h, --help      show help (also: %[1]s send --help, %[1]s receive --help)
+
+Config file:
+  Default values for flags can be set in %[2]s
+  (YAML; with --config also TOML or JSON). Flags on the command line win
+  over the file, and the file wins over built-in defaults. Example:
+
+    verbose: 1
+    send:
+      retry-timeout: 30m
+      verify: true
+    receive:
+      port: 4000
+      idle-timeout: 1h
+
+  Keys are the flag names under "send:" or "receive:". The code cannot be
+  set there. On Unix the file must not be writable by other users.
 `
-
-// verbosity is a repeatable -v flag.
-type verbosity int
-
-func (v *verbosity) String() string   { return fmt.Sprint(int(*v)) }
-func (v *verbosity) Set(string) error { *v++; return nil }
-func (v *verbosity) IsBoolFlag() bool { return true }
-
-func run(ctx context.Context, args []string, env *environment) int {
-	fs := flag.NewFlagSet(meta.Name, flag.ContinueOnError)
-	fs.SetOutput(io.Discard)
-	var verbose verbosity
-	var version bool
-	fs.Var(&verbose, "v", "")
-	fs.Var(&verbose, "verbose", "")
-	fs.BoolVar(&version, "version", false, "")
-	help := func() { fmt.Fprintf(env.stderr, globalUsage, meta.Name) }
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			help()
-			return fail.ExitOK
-		}
-		return usageError(env, err.Error())
-	}
-	if version {
-		fmt.Fprintln(env.stdout, meta.Name, meta.Version)
-		return fail.ExitOK
-	}
-	rest := fs.Args()
-	if len(rest) == 0 {
-		help()
-		return fail.ExitUsage
-	}
-	switch rest[0] {
-	case "receive", "recv":
-		return runReceive(ctx, rest[1:], int(verbose), env)
-	case "send":
-		return runSend(ctx, rest[1:], int(verbose), env)
-	case "help":
-		help()
-		return fail.ExitOK
-	}
-	return usageError(env, fmt.Sprintf("unknown command %q", rest[0]))
-}
 
 func usageError(env *environment, msg string) int {
 	fmt.Fprintf(env.stderr, "%s: %s\nRun '%s --help' for usage.\n", meta.Name, msg, meta.Name)
 	return fail.ExitUsage
-}
-
-// parseInterspersed parses flags that may appear before, between or after
-// positional arguments, returning the positionals. "--" ends flag parsing.
-func parseInterspersed(fs *flag.FlagSet, args []string) ([]string, error) {
-	var pos []string
-	for len(args) > 0 {
-		if err := fs.Parse(args); err != nil {
-			return nil, err
-		}
-		rest := fs.Args()
-		// flag.FlagSet stops at the first non-flag or just after "--";
-		// in the latter case everything left is positional.
-		if n := len(args) - len(rest); n > 0 && args[n-1] == "--" {
-			return append(pos, rest...), nil
-		}
-		if len(rest) == 0 {
-			break
-		}
-		pos = append(pos, rest[0])
-		args = rest[1:]
-	}
-	return pos, nil
 }
 
 // newLogger returns a slog.Logger writing to w at the level implied by -v.

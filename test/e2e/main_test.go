@@ -45,6 +45,14 @@ func TestMain(m *testing.M) {
 		fmt.Fprintln(os.Stderr, "building transporter:", err)
 		os.Exit(1)
 	}
+	// Point every OS's user config directory (os.UserConfigDir) at an
+	// empty directory, so the developer's own transporter config file
+	// cannot change what the tests do. Set after the build, which needs
+	// the real HOME for its caches.
+	cfg := filepath.Join(dir, "config-home")
+	for _, k := range []string{"XDG_CONFIG_HOME", "HOME", "AppData"} {
+		_ = os.Setenv(k, cfg)
+	}
 	code := m.Run()
 	_ = os.RemoveAll(dir)
 	os.Exit(code)

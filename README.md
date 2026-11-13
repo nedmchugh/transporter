@@ -147,12 +147,47 @@ directory and is created if missing):
 | `--verify` | off | As for receive. |
 | `--no-mdns` | off | Do not use discovery (requires `--to`). |
 
-Global flags: `-v`/`--verbose` (repeat for debug output), `--version`,
-`-h`/`--help` (also `transporter send --help`).
+Global flags: `-v`/`--verbose` (repeat for debug output), `--config PATH`
+(see below), `--version`, `-h`/`--help` (also `transporter send --help`).
 
 The code is recognized as the first argument only if it is a complete valid
 code; otherwise every argument is a path, and the code must come from
 `--code-file`, `TRANSPORTER_CODE` or the prompt.
+
+### Config file
+
+You can set your own defaults for any flag except the code in a config
+file. Transporter reads `transporter/config.yaml` from your user config
+directory if it exists:
+
+| OS | Default location |
+| --- | --- |
+| Linux | `~/.config/transporter/config.yaml` (or `$XDG_CONFIG_HOME/transporter/config.yaml`) |
+| macOS | `~/Library/Application Support/transporter/config.yaml` |
+| Windows | `%AppData%\transporter\config.yaml` |
+
+Or name a file with `--config PATH` (YAML, TOML or JSON, chosen by the
+extension). Keys are the flag names without `--`, under `send:` or
+`receive:`; only `verbose` goes at the top level:
+
+```yaml
+verbose: 1
+send:
+  retry-timeout: 30m
+  verify: true
+receive:
+  port: 4000
+  idle-timeout: 1h
+  no-mdns: true
+```
+
+A flag on the command line always wins over the file (for example
+`--verify=false`), and the file wins over the built-in defaults. Values are
+checked exactly as on the command line. An unknown key is an error, so a
+typo is reported rather than ignored. The code (and `code-file`) cannot be
+set in the file. On Linux and macOS the file must not be writable by other
+users (`chmod go-w`), because settings like `overwrite` change what a
+transfer does.
 
 ## Exit codes
 

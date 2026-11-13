@@ -12,13 +12,15 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/nedmchugh/transporter/internal/code"
 	"github.com/nedmchugh/transporter/internal/discover"
@@ -67,29 +69,33 @@ type sendFlags struct {
 	retryTimeout time.Duration
 	verify       bool
 	noMDNS       bool
-	verbose      verbosity
 	positionals  []string
 }
 
-func parseSend(args []string) (*sendFlags, error) {
-	f := &sendFlags{retryTimeout: send.DefaultRetryTimeout}
-	fs := flag.NewFlagSet("send", flag.ContinueOnError)
-	fs.SetOutput(nopWriter{})
-	fs.StringVar(&f.to, "to", "", "")
-	fs.StringVar(&f.codeFile, "code-file", "", "")
-	fs.DurationVar(&f.retryTimeout, "retry-timeout", send.DefaultRetryTimeout, "")
-	fs.BoolVar(&f.verify, "verify", false, "")
-	fs.BoolVar(&f.noMDNS, "no-mdns", false, "")
-	fs.Var(&f.verbose, "v", "")
-	fs.Var(&f.verbose, "verbose", "")
-	pos, err := parseInterspersed(fs, args)
-	if err != nil {
-		return nil, err
-	}
+// addSendFlags defines the send flags (SND-3). Help text lives in
+// sendUsage; the names here are also the config file keys under "send"
+// (configKeys).
+func addSendFlags(fs *pflag.FlagSet) {
+	fs.String("to", "", "")
+	fs.String("code-file", "", "")
+	fs.Duration("retry-timeout", send.DefaultRetryTimeout, "")
+	fs.Bool("verify", false, "")
+	fs.Bool("no-mdns", false, "")
+}
+
+// sendFlagsFrom reads the parsed send flags (command line and config file
+// already merged) and checks them.
+func sendFlagsFrom(c *cobra.Command, args []string) (*sendFlags, error) {
+	fl := c.Flags()
+	f := &sendFlags{positionals: args}
+	f.to, _ = fl.GetString("to")
+	f.codeFile, _ = fl.GetString("code-file")
+	f.retryTimeout, _ = fl.GetDuration("retry-timeout")
+	f.verify, _ = fl.GetBool("verify")
+	f.noMDNS, _ = fl.GetBool("no-mdns")
 	if f.retryTimeout < 0 {
-		return nil, errors.New("--retry-timeout must not be negative")
+		return nil, usagef("--retry-timeout must not be negative")
 	}
-	f.positionals = pos
 	return f, nil
 }
 
@@ -165,16 +171,7 @@ func unwrapPathErr(err error) error {
 	return err
 }
 
-func runSend(ctx context.Context, args []string, verbose int, env *environment) int {
-	f, err := parseSend(args)
-	if err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			fmt.Fprintf(env.stderr, sendUsage, meta.Name, CodeEnv)
-			return fail.ExitOK
-		}
-		return usageError(env, err.Error())
-	}
-	verbose += int(f.verbose)
+func runSend(ctx context.Context, f *sendFlags, verbose int, env *environment) int {
 	exists := func(p string) bool { _, err := os.Lstat(p); return err == nil }
 	posCode, paths, err := splitCodeAndPaths(f.positionals, exists)
 	if err != nil {

@@ -131,11 +131,11 @@ repository contents are verified by inspection of the named files.
 | CODE-5 | `internal/code` TestParseLenient |
 | CODE-6 | `internal/code` TestRedaction |
 | CODE-7 | `internal/code` TestParseErrors; `internal/discover` TestServiceRecords; `test/e2e` TestE2ECodeNeverLogged |
-| CODE-8 | `cmd/transporter` TestReadCodePrecedence; `test/e2e` TestE2ECodeInputMethods |
+| CODE-8 | `cmd/transporter` TestReadCodePrecedence; `cmd/transporter` TestConfigRejects; `test/e2e` TestE2ECodeInputMethods; `test/e2e` TestE2EConfigFile |
 | CODE-9 | Inspection: `docs/security.md` section 6 and `transporter send --help` explain process-listing and history visibility. |
 | RCV-1 | `cmd/transporter` TestParseReceiveFlags; `internal/recv` TestNewCreatesDestination |
 | RCV-2 | `test/e2e` TestE2ESingleFile |
-| RCV-3 | `cmd/transporter` TestParseReceiveFlags |
+| RCV-3 | `cmd/transporter` TestParseReceiveFlags; `cmd/transporter` TestConfigDefaults |
 | RCV-4 | `cmd/transporter` TestListenAddrs |
 | RCV-5 | `internal/recv` TestBusy; `internal/send` TestSupersession; `test/e2e` TestE2EBusy; `test/e2e` TestE2EFlakyProxy; `test/e2e` TestE2EKillSenderAndRerun |
 | RCV-6 | `test/e2e` TestE2ESingleFile |
@@ -143,7 +143,7 @@ repository contents are verified by inspection of the named files.
 | RCV-8 | `internal/recv` TestFailedHandshakesHarmless; `internal/recv` TestUnauthenticatedLimit |
 | SND-1 | `internal/send` TestMultipleSources |
 | SND-2 | `internal/manifest` TestWalk; `internal/manifest` TestWalkErrors; `internal/send` TestMultipleSources |
-| SND-3 | `cmd/transporter` TestParseSendFlags |
+| SND-3 | `cmd/transporter` TestParseSendFlags; `cmd/transporter` TestInterspersedFlags; `cmd/transporter` TestConfigDefaults |
 | SND-4 | `internal/manifest` TestWalk; `test/e2e` TestE2ELargeFile |
 | SND-5 | `internal/manifest` TestWalkUnreadable |
 | SND-6 | `test/e2e` TestE2EModifiedDuringTransfer |
@@ -207,7 +207,7 @@ repository contents are verified by inspection of the named files.
 | PROTO-5 | `internal/send` TestSupersession |
 | PROTO-6 | `internal/send` TestPipelining |
 | PROTO-7 | `internal/send` TestSingleFile; `test/e2e` TestE2ESingleFile |
-| CLI-1 | `cmd/transporter` TestRunUsage; `test/e2e` TestVersion |
+| CLI-1 | `cmd/transporter` TestRunUsage; `cmd/transporter` TestVerbosity; `test/e2e` TestVersion |
 | CLI-2 | `internal/progress` TestPlainOutput; `internal/progress` TestTTYOutput |
 | CLI-3 | `test/e2e` TestE2EExitPrecedence |
 | CLI-4 | `test/e2e` TestE2EWrongCode; `test/e2e` TestE2ETimeouts |

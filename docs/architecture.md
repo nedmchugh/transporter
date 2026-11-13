@@ -33,7 +33,7 @@ flowchart LR
 
 | Package | Responsibility |
 | --- | --- |
-| `cmd/transporter` | Flag parsing, code input (CODE-8), wiring, signal handling, summaries, exit codes. No transfer logic. |
+| `cmd/transporter` | Command-line parsing (cobra) and the optional config file of defaults (viper), code input (CODE-8), wiring, signal handling, summaries, exit codes. No transfer logic. |
 | `internal/code` | The word list, code generation and lenient parsing, the redacting `Code` type, and HKDF derivation of the PSK and discovery tag. |
 | `internal/pairing` | The `Pairer` interface (how the handshake secret is obtained) and the code-based implementation. |
 | `internal/secure` | Noise NNpsk0 handshake and the length-prefixed encrypted frame connection. |

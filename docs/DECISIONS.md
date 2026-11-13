@@ -439,12 +439,21 @@ and compared word for word with the SPDX copy (`spdx/license-list-data`,
 | golang.org/x/text | BSD-3-Clause | NFC normalization and case folding (TREE-9). |
 | golang.org/x/term | BSD-3-Clause | No-echo code prompt and terminal detection (CODE-8, CLI-2). |
 | golang.org/x/sys | BSD-3-Clause | Required by x/term; also free-space query (RCV-9). |
+| github.com/spf13/cobra | Apache-2.0 | Command-line parsing, at the maintainer's request (D-9.9). |
+| github.com/spf13/pflag | BSD-3-Clause | Flag parsing used by cobra; also used directly to define the flags. |
+| github.com/inconshreveable/mousetrap | Apache-2.0 | Required by cobra (on Windows, detects a double-click start from Explorer). |
+| github.com/spf13/viper | MIT | Config file of flag defaults, at the maintainer's request (D-9.9). |
+| github.com/spf13/afero, spf13/cast, go-viper/mapstructure/v2, sagikazarmark/locafero, sourcegraph/conc, fsnotify/fsnotify, subosito/gotenv | Apache-2.0 (afero), BSD-3-Clause (fsnotify), MIT (the rest) | Required by viper. Transporter does not use file watching or `.env` files, but viper links them in. |
+| go.yaml.in/yaml/v3, pelletier/go-toml/v2 | MIT (yaml/v3 also carries an Apache-2.0 NOTICE, copied into THIRD_PARTY_LICENSES) | Required by viper to parse YAML and TOML config files. |
 
 Verified with `go-licenses report ./cmd/transporter` (phase 7). The binary's
 dependency closure is noise (BSD-3-Clause), hashicorp/mdns (MIT),
 klauspost/cpuid/v2 (MIT), miekg/dns (BSD-3-Clause), x/crypto, x/net, x/sys,
 x/term and x/text (BSD-3-Clause), and blake3 (MIT). All are on the LIC-3
-allowlist. `golang.org/x/sync` appears in `go.mod` only as a requirement of
+allowlist. Cobra v1.10.2 and viper v1.21.0 (with pflag v1.0.10) were the
+latest releases on proxy.golang.org on 2026-11-12, all active spf13
+projects; `go-licenses report` on a probe module confirmed that every
+module they add is on the allowlist. `golang.org/x/sync` appears in `go.mod` only as a requirement of
 miekg/dns and is not compiled into the binary.
 
 The goroutine leak check (TEST-6) is a small in-repo helper
@@ -568,6 +577,39 @@ dependency (and its `testify` dependency tree) for about 60 lines of code.
   `dist/docker/` too. Unlike Apache-2.0, MPL-2.0 does not
   require recipients to keep a `NOTICE` file, so it is informational, and
   says so.
+- **D-9.9 Cobra and viper; a config file of defaults (maintainer request,
+  2026-11-12).** The maintainer asked for command-line parsing with cobra
+  and a viper config file for user-set defaults. This departs from NG-5
+  (no configuration files) and from the CLI-1 recommendation to use the
+  standard `flag` package; the request is the justification CLI-1 asks
+  for. The cost (NFR-5): 12 more modules in the binary (22 in all, listed
+  in section 6), and the stripped Linux binary grows from 6.3 MB to
+  10.8 MB. Startup is about 4 ms slower. Choices, all on the cautious side:
+  - *Precedence*: command line, then config file, then built-in default.
+    Each value from the file is applied through the flag's own parser and
+    the same range checks, so the file accepts exactly what the command
+    line accepts. Viper is used only to read and parse the file.
+  - *Location*: `transporter/config.yaml` in the user's config directory
+    (`os.UserConfigDir`: `~/.config` on Linux, `~/Library/Application
+    Support` on macOS, `%AppData%` on Windows), or the file named by
+    `--config`. A missing default file is normal; a missing `--config`
+    file is an error. Only YAML, TOML and JSON are accepted, by extension,
+    to keep the reachable parsers few.
+  - *Keys*: the flag names, under `send:` or `receive:` (plus top-level
+    `verbose`). Unknown keys are errors, so a typo is not silently
+    ignored. The code and `--code-file` cannot be set: CODE-8 fixes the
+    code's sources, and a code in a file of defaults would be a long-lived
+    secret on disk. The error never echoes the value.
+  - *Permissions*: on Unix a config file writable by group or others is
+    refused, as ssh does, because defaults such as `overwrite` or `to`
+    change what a transfer does.
+  - *Not used*: viper's environment-variable binding (no new variables;
+    `TRANSPORTER_CODE` is unchanged), remote config and file watching.
+  - *Help*: the help texts stay hand-written, so every flag still states
+    its default in words (CLI-5); pflag's generated usage omits defaults
+    for zero values. Help works even when the config file is broken.
+  - *Tests*: the e2e suite points the user config directory at an empty
+    directory, so a developer's own config file cannot change results.
 
 ## 10. Maintainer open items
 

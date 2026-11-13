@@ -12,13 +12,14 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"flag"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/spf13/pflag"
 
 	"github.com/nedmchugh/transporter/internal/code"
 	"github.com/nedmchugh/transporter/internal/fail"
@@ -35,10 +36,41 @@ func testEnv(stdin string, vars map[string]string, tty bool) (*environment, *byt
 		getenv:       func(k string) string { return vars[k] },
 		isTerminal:   func(any) bool { return tty },
 		readPassword: func() (string, error) { return stdin, nil },
+		// No user config directory, so the developer's own config file
+		// never affects tests; config tests set one explicitly.
+		userConfigDir: func() (string, error) { return "", errors.New("no config dir in tests") },
 	}, &out, &errb
 }
 
-func TestParseInterspersed(t *testing.T) {
+// captured holds the flags a subcommand would have run with.
+type captured struct {
+	send    *sendFlags
+	receive *receiveFlags
+	verbose int
+}
+
+// capture runs the CLI with args, replacing the subcommands so that the
+// final flags (command line and config file merged) are recorded instead
+// of starting a transfer.
+func capture(t *testing.T, env *environment, args ...string) (captured, int) {
+	t.Helper()
+	var got captured
+	oldS, oldR := sendMain, receiveMain
+	t.Cleanup(func() { sendMain, receiveMain = oldS, oldR })
+	sendMain = func(_ context.Context, f *sendFlags, v int, _ *environment) int {
+		got.send, got.verbose = f, v
+		return 0
+	}
+	receiveMain = func(_ context.Context, f *receiveFlags, v int, _ *environment) int {
+		got.receive, got.verbose = f, v
+		return 0
+	}
+	return got, run(context.Background(), args, env)
+}
+
+// TestInterspersedFlags covers SND-1 and RCV-1: flags may come before,
+// between or after positional arguments, and "--" ends flag parsing.
+func TestInterspersedFlags(t *testing.T) {
 	tests := []struct {
 		args    []string
 		wantPos []string
@@ -52,11 +84,10 @@ func TestParseInterspersed(t *testing.T) {
 		{[]string{"-"}, []string{"-"}, ""},
 	}
 	for _, tc := range tests {
-		fs := flag.NewFlagSet("x", flag.ContinueOnError)
-		to := fs.String("to", "", "")
-		pos, err := parseInterspersed(fs, tc.args)
-		if err != nil || !slices.Equal(pos, tc.wantPos) || *to != tc.wantTo {
-			t.Errorf("%v: pos %v to %q err %v", tc.args, pos, *to, err)
+		env, _, errb := testEnv("", nil, false)
+		got, exit := capture(t, env, append([]string{"send"}, tc.args...)...)
+		if exit != 0 || got.send == nil || !slices.Equal(got.send.positionals, tc.wantPos) || got.send.to != tc.wantTo {
+			t.Errorf("%v: exit %d, flags %+v\n%s", tc.args, exit, got.send, errb)
 		}
 	}
 }
@@ -150,7 +181,11 @@ func TestRunUsage(t *testing.T) {
 		{[]string{"help"}, 0, "Commands:"},
 		{nil, 2, "Usage:"},
 		{[]string{"frobnicate"}, 2, "unknown command"},
-		{[]string{"--bogus"}, 2, "flag provided but not defined"},
+		{[]string{"--bogus"}, 2, "unknown flag: --bogus"},
+		{[]string{"send", "--bogus", "x"}, 2, "unknown flag: --bogus"},
+		{[]string{"recv", "--help"}, 0, "--idle-timeout DUR"},
+		{[]string{"help", "send"}, 0, "--retry-timeout DUR"},
+		{[]string{"--help"}, 0, "Config file:"},
 		{[]string{"send", "--help"}, 0, "--retry-timeout DUR"},
 		{[]string{"receive", "-h"}, 0, "--idle-timeout DUR"},
 		{[]string{"send"}, 2, "nothing to send"},
@@ -173,23 +208,31 @@ func TestRunUsage(t *testing.T) {
 	}
 }
 
-// TestHelpDocumentsEveryFlag covers CLI-5: each subcommand's help lists
-// every flag it defines, and states defaults.
+// TestHelpDocumentsEveryFlag covers CLI-5: each help text lists every
+// flag the command actually defines, and states defaults.
 func TestHelpDocumentsEveryFlag(t *testing.T) {
 	for _, tc := range []struct {
 		usage string
-		flags []string
+		add   func(*pflag.FlagSet)
+		extra []string
 	}{
-		{receiveUsage, []string{"--port", "--bind", "--overwrite", "--verify", "--idle-timeout", "--no-mdns", "--verbose"}},
-		{sendUsage, []string{"--to", "--code-file", "--retry-timeout", "--verify", "--no-mdns", "--verbose"}},
+		{receiveUsage, addReceiveFlags, []string{"--verbose"}},
+		{sendUsage, addSendFlags, []string{"--verbose"}},
+		{globalUsage, func(*pflag.FlagSet) {}, []string{"--verbose", "--config", "--version", "--help"}},
 	} {
-		for _, f := range tc.flags {
+		fs := pflag.NewFlagSet("x", pflag.ContinueOnError)
+		tc.add(fs)
+		names := tc.extra
+		fs.VisitAll(func(f *pflag.Flag) { names = append(names, "--"+f.Name) })
+		for _, f := range names {
 			if !strings.Contains(tc.usage, f) {
 				t.Errorf("usage lacks %s", f)
 			}
 		}
-		if got := strings.Count(tc.usage, "(default"); got < len(tc.flags) {
-			t.Errorf("usage states %d defaults for %d flags", got, len(tc.flags))
+		if tc.usage != globalUsage {
+			if got := strings.Count(tc.usage, "(default"); got < len(names) {
+				t.Errorf("usage states %d defaults for %d flags", got, len(names))
+			}
 		}
 	}
 	for _, d := range []string{"10m0s", "random free port", "all interfaces"} {
@@ -219,13 +262,16 @@ func TestListenAddrs(t *testing.T) {
 // TestParseReceiveFlags covers RCV-1 (DEST defaults to ".") and RCV-3
 // (every flag and its default).
 func TestParseReceiveFlags(t *testing.T) {
-	f, err := parseReceive(nil)
-	if err != nil || f.dest != "." || f.port != 0 || f.bind != "" || f.overwrite || f.verify || f.noMDNS || f.idleTimeout != 10*time.Minute {
-		t.Fatalf("defaults: %+v %v", f, err)
+	env, _, _ := testEnv("", nil, false)
+	got, exit := capture(t, env, "receive")
+	f := got.receive
+	if exit != 0 || f.dest != "." || f.port != 0 || f.bind != "" || f.overwrite || f.verify || f.noMDNS || f.idleTimeout != 10*time.Minute {
+		t.Fatalf("defaults: %+v exit %d", f, exit)
 	}
-	f, err = parseReceive([]string{"--port", "4000", "dest", "--bind", "127.0.0.1", "--overwrite", "--verify", "--idle-timeout", "0", "--no-mdns", "-v"})
-	if err != nil || f.dest != "dest" || f.port != 4000 || f.bind != "127.0.0.1" || !f.overwrite || !f.verify || !f.noMDNS || f.idleTimeout != 0 || f.verbose != 1 {
-		t.Fatalf("set: %+v %v", f, err)
+	got, exit = capture(t, env, "receive", "--port", "4000", "dest", "--bind", "127.0.0.1", "--overwrite", "--verify", "--idle-timeout", "0", "--no-mdns", "-v")
+	f = got.receive
+	if exit != 0 || f.dest != "dest" || f.port != 4000 || f.bind != "127.0.0.1" || !f.overwrite || !f.verify || !f.noMDNS || f.idleTimeout != 0 || got.verbose != 1 {
+		t.Fatalf("set: %+v exit %d", f, exit)
 	}
 }
 
@@ -234,22 +280,27 @@ func TestParseSendFlags(t *testing.T) {
 	if CodeEnv != "TRANSPORTER_CODE" {
 		t.Fatalf("CODE-8 environment variable is %q", CodeEnv)
 	}
-	f, err := parseSend([]string{"a"})
-	if err != nil || f.to != "" || f.codeFile != "" || f.retryTimeout != 10*time.Minute || f.verify || f.noMDNS {
-		t.Fatalf("defaults: %+v %v", f, err)
+	env, _, _ := testEnv("", nil, false)
+	got, exit := capture(t, env, "send", "a")
+	f := got.send
+	if exit != 0 || f.to != "" || f.codeFile != "" || f.retryTimeout != 10*time.Minute || f.verify || f.noMDNS {
+		t.Fatalf("defaults: %+v exit %d", f, exit)
 	}
-	f, err = parseSend([]string{"a", "--to", "h:1", "--code-file", "-", "--retry-timeout", "0", "--verify", "--no-mdns", "b"})
-	if err != nil || f.to != "h:1" || f.codeFile != "-" || f.retryTimeout != 0 || !f.verify || !f.noMDNS || !slices.Equal(f.positionals, []string{"a", "b"}) {
-		t.Fatalf("set: %+v %v", f, err)
+	got, exit = capture(t, env, "send", "a", "--to", "h:1", "--code-file", "-", "--retry-timeout", "0", "--verify", "--no-mdns", "b")
+	f = got.send
+	if exit != 0 || f.to != "h:1" || f.codeFile != "-" || f.retryTimeout != 0 || !f.verify || !f.noMDNS || !slices.Equal(f.positionals, []string{"a", "b"}) {
+		t.Fatalf("set: %+v exit %d", f, exit)
 	}
 }
 
+// TestVerbosity covers CLI-1: -v/--verbose is global, repeatable, and may
+// appear before or after the subcommand.
 func TestVerbosity(t *testing.T) {
-	fs := flag.NewFlagSet("x", flag.ContinueOnError)
-	var v verbosity
-	fs.Var(&v, "v", "")
-	if err := fs.Parse([]string{"-v", "-v"}); err != nil || v != 2 || v.String() != "2" {
-		t.Fatalf("v=%d err=%v", v, err)
+	env, _, _ := testEnv("", nil, false)
+	for _, args := range [][]string{{"-v", "-v", "send", "a"}, {"-v", "send", "a", "--verbose"}, {"send", "-vv", "a"}} {
+		if got, exit := capture(t, env, args...); exit != 0 || got.verbose != 2 {
+			t.Errorf("%v: verbose %d exit %d", args, got.verbose, exit)
+		}
 	}
 	for _, lvl := range []int{0, 1, 2} {
 		if newLogger(&bytes.Buffer{}, lvl) == nil {
