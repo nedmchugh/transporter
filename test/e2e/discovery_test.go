@@ -12,7 +12,9 @@ package e2e
 
 import (
 	"context"
+	"net"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -57,9 +59,10 @@ func TestE2EDiscovery(t *testing.T) {
 	testutil.CompareTrees(t, src, dst, testutil.CompareOptions{})
 }
 
-// TestE2EDiscoveryFails covers DISC-3 and DISC-4: without --to and with no
-// matching receiver, the sender gives up after the discovery timeout with
-// exit 4 and suggests --to, mentioning that mDNS is often blocked.
+// TestE2EDiscoveryFails covers DISC-3, DISC-4 and DISC-7: without --to and
+// with no matching receiver, the sender tries mDNS and then the UDP sweep,
+// gives up after both timeouts with exit 4, and suggests --to, naming the
+// usual cause of each failure.
 func TestE2EDiscoveryFails(t *testing.T) {
 	t.Parallel()
 	src := t.TempDir()
@@ -70,13 +73,73 @@ func TestE2EDiscoveryFails(t *testing.T) {
 	if res.exit != 4 {
 		t.Fatalf("exit %d\n%s", res.exit, res.stderr)
 	}
-	if took < discover.DefaultTimeout || took > discover.DefaultTimeout+10*time.Second {
-		t.Fatalf("took %v, want about %v", took, discover.DefaultTimeout)
+	want := discover.DefaultTimeout + discover.SweepTimeout
+	if took < want || took > want+10*time.Second {
+		t.Fatalf("took %v, want about %v", took, want)
 	}
-	for _, want := range []string{"--to HOST:PORT", "mDNS is often blocked", "could not find the receiver"} {
+	for _, want := range []string{"--to HOST:PORT", "mDNS is often blocked", "UDP port 29873", "could not find the receiver", "within 8s"} {
 		if !strings.Contains(res.stderr, want) {
 			t.Errorf("message lacks %q:\n%s", want, res.stderr)
 		}
+	}
+}
+
+// freeUDPPort returns a UDP port that was free a moment ago, so the sweep
+// tests do not depend on the fixed default port (TEST-8).
+func freeUDPPort(t *testing.T) string {
+	t.Helper()
+	pc, err := net.ListenPacket("udp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pc.Close()
+	return strconv.Itoa(pc.LocalAddr().(*net.UDPAddr).Port)
+}
+
+// TestE2ESweep covers DISC-6 to DISC-9 (TEST-8 scenario 11): with mDNS off
+// on both sides and no --to, the sender finds the receiver with the UDP
+// sweep, here over loopback, which the sweep always probes.
+func TestE2ESweep(t *testing.T) {
+	t.Parallel()
+	port := freeUDPPort(t)
+	src, dst := t.TempDir(), t.TempDir()
+	testutil.WriteTree(t, src, map[string]string{"swept.txt": "via the UDP sweep"})
+	r := startReceiverRaw(t, "receive", "--bind", "127.0.0.1", "--no-mdns", "--sweep-port", port, dst)
+	res := runSender(t, nil, nil, "--no-mdns", "--sweep-port", port, r.code, filepath.Join(src, "swept.txt"))
+	if res.exit != 0 {
+		t.Fatalf("exit %d\n%s\nreceiver:\n%s", res.exit, res.stderr, r.stderr)
+	}
+	if r.wait(t, 30*time.Second) != 0 {
+		t.Fatal("receiver failed")
+	}
+	testutil.CompareTrees(t, src, dst, testutil.CompareOptions{})
+}
+
+// TestE2ESweepDisabled covers DISC-9: a receiver started with --no-sweep
+// does not answer the sweep, so the sender gives up after the sweep
+// timeout with exit 4 and a hint that names the sweep port.
+func TestE2ESweepDisabled(t *testing.T) {
+	t.Parallel()
+	port := freeUDPPort(t)
+	src := t.TempDir()
+	testutil.WriteTree(t, src, map[string]string{"f": "x"})
+	r := startReceiverRaw(t, "receive", "--bind", "127.0.0.1", "--no-mdns", "--no-sweep", "--sweep-port", port, t.TempDir())
+	start := time.Now()
+	res := runSender(t, nil, nil, "--no-mdns", "--sweep-port", port, r.code, filepath.Join(src, "f"))
+	took := time.Since(start)
+	if res.exit != 4 {
+		t.Fatalf("exit %d\n%s", res.exit, res.stderr)
+	}
+	if took < discover.SweepTimeout || took > discover.SweepTimeout+10*time.Second {
+		t.Fatalf("took %v, want about %v", took, discover.SweepTimeout)
+	}
+	for _, want := range []string{"UDP port " + port, "UDP sweep: no answer", "within 3s"} {
+		if !strings.Contains(res.stderr, want) {
+			t.Errorf("message lacks %q:\n%s", want, res.stderr)
+		}
+	}
+	if strings.Contains(res.stderr, "mDNS is often blocked") {
+		t.Errorf("mDNS was off, but the hint mentions it:\n%s", res.stderr)
 	}
 }
 

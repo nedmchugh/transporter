@@ -17,6 +17,10 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and dead-connection detection, session supersession and BUSY handling.
 - mDNS discovery (`_transporter._tcp`) with `--to` as an always-available
   alternative.
+- A UDP unicast sweep of the local IPv4 subnets (UDP port 29873) that finds
+  the receiver when mDNS does not. It is on by default; `--no-sweep` and
+  `--sweep-port`, on both send and receive and in the config file, turn it
+  off or change its port.
 - Progress on stderr, final summaries, and documented exit codes.
 - Command-line parsing with cobra, and an optional YAML config file for
   your own flag defaults: by default `transporter/config.yaml` in the user

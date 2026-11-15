@@ -56,16 +56,18 @@ receive:
   overwrite: true
   idle-timeout: 1h
   no-mdns: true
+  no-sweep: true
+  sweep-port: 4001
 `)
 	got, exit := capture(t, env, "send", "a")
 	if exit != 0 {
 		t.Fatalf("exit %d\n%s", exit, errb)
 	}
-	if f := got.send; f.to != "192.0.2.1:4000" || f.retryTimeout != 30*time.Minute || !f.verify || f.noMDNS || got.verbose != 1 {
+	if f := got.send; f.to != "192.0.2.1:4000" || f.retryTimeout != 30*time.Minute || !f.verify || f.noMDNS || f.noSweep || f.sweepPort != 29873 || got.verbose != 1 {
 		t.Fatalf("send from config: %+v verbose %d", f, got.verbose)
 	}
 	got, _ = capture(t, env, "receive", "dest")
-	if f := got.receive; f.port != 4000 || f.bind != "127.0.0.1" || !f.overwrite || f.verify || f.idleTimeout != time.Hour || !f.noMDNS || f.dest != "dest" {
+	if f := got.receive; f.port != 4000 || f.bind != "127.0.0.1" || !f.overwrite || f.verify || f.idleTimeout != time.Hour || !f.noMDNS || !f.noSweep || f.sweepPort != 4001 || f.dest != "dest" {
 		t.Fatalf("receive from config: %+v", f)
 	}
 	// The command line wins, including setting a boolean back to false.
@@ -220,8 +222,8 @@ func TestConfigKeysMatchFlags(t *testing.T) {
 		}
 	}
 	want := map[string]bool{}
-	for _, k := range []string{"send.to", "send.retry-timeout", "send.verify", "send.no-mdns",
-		"receive.port", "receive.bind", "receive.overwrite", "receive.verify", "receive.idle-timeout", "receive.no-mdns", "verbose"} {
+	for _, k := range []string{"send.to", "send.retry-timeout", "send.verify", "send.no-mdns", "send.no-sweep", "send.sweep-port",
+		"receive.port", "receive.bind", "receive.overwrite", "receive.verify", "receive.idle-timeout", "receive.no-mdns", "receive.no-sweep", "receive.sweep-port", "verbose"} {
 		want[k] = true
 	}
 	for _, k := range knownConfigKeys() {

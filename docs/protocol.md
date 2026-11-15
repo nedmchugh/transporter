@@ -342,3 +342,19 @@ or space, `<>:"|?*`, control characters, drive or UNC prefixes).
   `tag=<8 lowercase hex digits>` and `v=1`. The tag is `HKDF-SHA-256(IKM =
   canonical code, salt = empty, info = "transporter v1 discovery", L = 4)`.
   The code itself is never advertised.
+- UDP unicast sweep (DISC-6 to DISC-9), used only when mDNS finds nothing.
+  The receiver listens on UDP port 29873 (`--sweep-port`), IPv4 only. The
+  sender sends each target a probe from one unbound UDP socket:
+
+  ```text
+  probe   "TRSQ" | 0x01 | tag (4 bytes) | nonce (8 bytes)       17 bytes
+  reply   "TRSR" | 0x01 | nonce (8 bytes) | TCP port (2, BE)    15 bytes
+  ```
+
+  `0x01` is the sweep version, the tag is the mDNS tag above, and the nonce
+  is random per discovery. A receiver answers only a 17-byte probe with
+  its own tag, to the probe's source address, echoing the nonce. The sender
+  accepts only a 15-byte reply with its nonce and a non-zero port, and
+  connects to the reply's source IP at that port. All other packets are
+  ignored without a reply. Probes are sent in batches of 64 with 20 ms
+  between batches, and a new round starts every second, for up to 3 s.

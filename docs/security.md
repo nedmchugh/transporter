@@ -37,7 +37,8 @@
   approximate volume.
 - A compromised sender or receiver machine.
 - **Denial of service** by anyone on the network (dropping packets,
-  opening connections, answering mDNS queries with wrong addresses).
+  opening connections, answering mDNS queries or sweep probes with wrong
+  addresses).
 
 ## 2. Design: why a high-entropy code and no PAKE
 
@@ -89,8 +90,8 @@ changing the transfer layers (see `architecture.md`).
 | Attack | What it needs | Cost |
 | --- | --- | --- |
 | Online guessing against a receiver | One TCP connection and handshake per guess; at most 4 unauthenticated connections at a time, 10 s deadline each. The receiver lives minutes. | Thousands of guesses at best, against 2^98.7: negligible. |
-| Offline guessing from handshake message 1 | A copy of message 1: either observed on the network, or received by pretending to be the receiver (for example with a spoofed mDNS answer). Each guess costs one HKDF and one AEAD check, with no Diffie-Hellman. | At 10^12 guesses per second (a large GPU farm), about 2^58.8 s ≈ 1.6 × 10^10 years. |
-| Offline guessing from the mDNS tag | The 4-byte discovery tag (an HKDF output) filters guesses without any handshake. | The same cost per guess as above; the tag does not shorten the search. 2^32 possible tags mean many codes share a tag, so the tag alone never confirms a guess. |
+| Offline guessing from handshake message 1 | A copy of message 1: either observed on the network, or received by pretending to be the receiver (for example with a spoofed mDNS or sweep answer). Each guess costs one HKDF and one AEAD check, with no Diffie-Hellman. | At 10^12 guesses per second (a large GPU farm), about 2^58.8 s ≈ 1.6 × 10^10 years. |
+| Offline guessing from the discovery tag (mDNS or sweep) | The 4-byte discovery tag (an HKDF output) filters guesses without any handshake. | The same cost per guess as above; the tag does not shorten the search. 2^32 possible tags mean many codes share a tag, so the tag alone never confirms a guess. |
 
 The 88-bit floor in the requirements leaves this margin even if the list
 were smaller. Increasing the word count increases it further.
@@ -176,6 +177,19 @@ never writes it (DECISIONS.md D-9.9).
   advertisement reveals that a Transporter receiver is running, its port,
   its addresses, and a random instance name; it does not include the
   machine's host name.
+- **The UDP sweep is unauthenticated too**, with the same consequences as
+  a spoofed mDNS answer. A sweep answer must echo the probe's random
+  nonce, so an attacker has to see the probe first, as any host on the
+  subnet does. The probe carries the same tag that mDNS already
+  advertises. The receiver answers only probes with its tag, so a scan of
+  UDP port 29873 without the tag finds nothing, and its 15-byte reply is
+  shorter than the 17-byte probe, so it cannot amplify a spoofed-source
+  flood. When mDNS fails, the sender's sweep sends one small probe to
+  each address of its subnets (up to 4,096) every second for up to 3 s,
+  which
+  network intrusion detection may report as a scan. Disable it with
+  `--no-sweep` (or `no-sweep: true` in the config file) where that is
+  unwelcome.
 - **Rejection signal**: a receiver that is killed exactly while answering a
   handshake looks, to the sender, like a wrong code (exit 3). Rerun.
 - **Key material in memory**: Go cannot reliably erase memory, so derived

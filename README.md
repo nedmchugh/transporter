@@ -71,8 +71,10 @@ run it from Git Bash or WSL.
    transporter send CODE ./photos ./notes.txt
    ```
 
-   The sender finds the receiver on the local network with mDNS. If that
-   does not work, add `--to` with an address the receiver printed:
+   The sender finds the receiver on the local network with mDNS, or, if
+   mDNS is blocked, by sending a small UDP probe to every address on its
+   subnet. If neither works, add `--to` with an address the receiver
+   printed:
 
    ```console
    transporter send --to 192.168.1.20:41853 CODE ./photos
@@ -135,17 +137,21 @@ directory and is created if missing):
 | `--overwrite` | off | Replace existing files that differ. Without it they are kept and reported as conflicts. |
 | `--verify` | off | Compare by BLAKE3 hash instead of size and mtime. Either side can enable it. |
 | `--idle-timeout DUR` | `10m` | Give up after this long without sender activity; `0` waits forever. |
-| `--no-mdns` | off | Do not advertise on the local network. |
+| `--no-mdns` | off | Do not advertise on the local network with mDNS. |
+| `--no-sweep` | off | Do not answer senders' UDP sweep probes. |
+| `--sweep-port N` | `29873` | UDP port to answer the sweep on (IPv4 only). |
 
 `transporter send [flags] [CODE] PATH...`:
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `--to HOST:PORT` | discover with mDNS | Receiver address. Always takes precedence over discovery. |
+| `--to HOST:PORT` | discover with mDNS, then the UDP sweep | Receiver address. Always takes precedence over discovery. |
 | `--code-file PATH` | not used | Read the code from the first line of PATH (`-` = stdin). |
 | `--retry-timeout DUR` | `10m` | How long to keep retrying without progress; `0` disables retries. |
 | `--verify` | off | As for receive. |
-| `--no-mdns` | off | Do not use discovery (requires `--to`). |
+| `--no-mdns` | off | Do not use mDNS. |
+| `--no-sweep` | off | Do not sweep the local subnet when mDNS finds nothing. With `--no-mdns`, requires `--to`. |
+| `--sweep-port N` | `29873` | UDP port of the sweep; must match the receiver's. |
 
 Global flags: `-v`/`--verbose` (repeat for debug output), `--config PATH`
 (see below), `--version`, `-h`/`--help` (also `transporter send --help`).
@@ -179,6 +185,7 @@ receive:
   port: 4000
   idle-timeout: 1h
   no-mdns: true
+  no-sweep: true
 ```
 
 A flag on the command line always wins over the file (for example
@@ -211,7 +218,12 @@ such as skipped symlinks, are listed but do not change the exit code.
 
 - **"could not find the receiver on the local network"**: mDNS is often
   blocked on guest, corporate and some home networks, and by host firewalls.
-  Use `--to HOST:PORT` with an address the receiver printed.
+  The sender then sweeps its local subnet (up to 1,022 addresses) with UDP
+  probes for 3 s, which needs inbound UDP port 29873 open on the receiving
+  machine and both machines on the same subnet. Otherwise, use
+  `--to HOST:PORT` with an address the receiver printed. On networks where
+  scanning is unwelcome, turn the sweep off with `--no-sweep` or
+  `no-sweep: true` in the config file.
 - **The sender cannot connect (connection refused or timed out)**: check
   the address and port, that both machines are on the same network, and
   that a firewall allows inbound TCP to the receiver's port. Use `--port`

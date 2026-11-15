@@ -19,7 +19,11 @@ Single packages or tests: `go test -race -run TestFaultInjection ./internal/send
 
 All tests are hermetic: temporary directories (`t.TempDir`), loopback
 addresses with port 0, no fixed ports, no network access beyond loopback
-(and multicast for the mDNS tests, which skip without it). They are safe to
+(and multicast for the mDNS tests, which skip without it). The exceptions
+are the e2e tests that let the sender sweep (`TestE2EDiscoveryFails`,
+`TestE2ESweep`, `TestE2ESweepDisabled`): the sweep also sends a few
+thousand small UDP probes to the machine's own IPv4 subnets, which no host
+answers, because no receiver there has the test's tag. They are safe to
 run in parallel.
 
 ## Test categories
@@ -38,7 +42,8 @@ run in parallel.
 - **Fuzz tests** with committed seed corpora under `testdata/fuzz`:
   `FuzzDecode` (every message decoder; also checks canonical re-encoding),
   `FuzzReadFrame` (frame reader), `FuzzValidatePath` (path validator),
-  `FuzzParse` (code parser). Decoders bound allocations by the input
+  `FuzzParse` (code parser), `FuzzSweepPacket` (sweep probe and reply
+  parsers). Decoders bound allocations by the input
   present, which the fuzzers exercise with lying length fields.
 - **Hostile-input tests** (`internal/recv/hostile_test.go`): a test-only
   client that knows the code sends crafted messages: hostile paths,
@@ -102,6 +107,10 @@ observes in-flight counts (XFER-6). Both are nil in production.
   message when multicast does not work (common in CI containers and behind
   host firewalls). Record construction and answer matching are unit-tested
   without the network.
+- **UDP sweep**: the tests sweep only 127.0.0.1 on a free port (unit tests
+  replace the target list), so they do not depend on the fixed default
+  port, on multicast or on the host firewall. The subnet expansion is
+  unit-tested on fixed prefixes.
 - **Memory**: that memory does not grow with file size (SND-4, NFR-4) is
   verified by design and inspection: one chunk buffer and fixed frame
   buffers per connection, with no per-chunk frame allocation. There is no
@@ -181,9 +190,13 @@ repository contents are verified by inspection of the named files.
 | REL-7 | `internal/send` TestRetryInterrupted; `test/e2e` TestE2ESignals; `test/e2e` TestE2EKillSenderAndRerun |
 | DISC-1 | `internal/discover` TestAdvertiseAndFind; `internal/discover` TestServiceRecords; `test/e2e` TestE2EDiscovery |
 | DISC-2 | `internal/discover` TestAdvertiseAndFind; `internal/discover` TestMatch; `test/e2e` TestE2EDiscovery |
-| DISC-3 | `internal/discover` TestFindTimeout; `test/e2e` TestE2EDiscoveryFails |
+| DISC-3 | `internal/discover` TestFindTimeout; `cmd/transporter` TestDiscoveryMessages; `test/e2e` TestE2EDiscoveryFails |
 | DISC-4 | `test/e2e` TestE2EDiscoveryFails |
 | DISC-5 | `internal/discover` TestAdvertiseAndFind; `test/e2e` TestE2EDiscovery |
+| DISC-6 | `internal/discover` TestSweepWire; `internal/discover` TestResponderIgnoresJunk; `internal/discover` TestResponderClose; `internal/discover` TestResponderRejects; `internal/discover` FuzzSweepPacket; `test/e2e` TestE2ESweep |
+| DISC-7 | `internal/discover` TestSweepFind; `internal/discover` TestSweepLateReceiver; `cmd/transporter` TestDiscoveryMessages; `test/e2e` TestE2ESweep; `test/e2e` TestE2EDiscoveryFails |
+| DISC-8 | `internal/discover` TestSubnetHosts; `internal/discover` TestSweepTargets |
+| DISC-9 | `cmd/transporter` TestParseSendFlags; `cmd/transporter` TestParseReceiveFlags; `cmd/transporter` TestConfigDefaults; `test/e2e` TestE2ESweepDisabled |
 | SEC-1 | `internal/secure` TestHandshakeSuccess |
 | SEC-2 | `internal/code` TestKDFGolden; `internal/pairing` TestCodePairer |
 | SEC-3 | `internal/secure` TestHandshakePrologueMismatch |

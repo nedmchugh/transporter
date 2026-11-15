@@ -7,8 +7,10 @@
 // Copyright 2026 Ned McHugh
 
 // Package discover finds receivers on the local network with mDNS/DNS-SD
-// (DISC-1 to DISC-5). The mDNS library is used only behind the Advertiser
-// and Browser interfaces, so it can be replaced without touching callers.
+// (DISC-1 to DISC-5) and, where multicast is blocked, with a UDP unicast
+// sweep of the local subnets (DISC-6 to DISC-9). Both are used only behind
+// the Advertiser and Browser interfaces, so the mDNS library can be
+// replaced without touching callers.
 package discover
 
 import (
@@ -23,7 +25,8 @@ import (
 // Service is the DNS-SD service type (DISC-1). It is a wire constant.
 const Service = "_transporter._tcp"
 
-// DefaultTimeout is how long the sender looks for a receiver (DISC-3).
+// DefaultTimeout is how long the sender looks for a receiver with mDNS
+// (DISC-3).
 const DefaultTimeout = 5 * time.Second
 
 // TagKey is the TXT record key holding the hex discovery tag.

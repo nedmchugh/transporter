@@ -23,7 +23,6 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/nedmchugh/transporter/internal/code"
-	"github.com/nedmchugh/transporter/internal/discover"
 	"github.com/nedmchugh/transporter/internal/fail"
 	"github.com/nedmchugh/transporter/internal/manifest"
 	"github.com/nedmchugh/transporter/internal/meta"
@@ -47,14 +46,18 @@ shared machines.
 
 Flags:
   --to HOST:PORT       connect to this receiver (default "": find it on the
-                       local network with mDNS)
+                       local network with mDNS, then the UDP sweep)
   --code-file PATH     read the code from the first line of PATH, or stdin
                        for '-' (default "": not used)
   --retry-timeout DUR  keep retrying after network failures for this long
                        without progress (default 10m0s; 0 disables retries)
   --verify             compare file contents by hash instead of size and
                        modification time (default false)
-  --no-mdns            do not use mDNS; requires --to (default false)
+  --no-mdns            do not use mDNS (default false)
+  --no-sweep           do not sweep the local subnet with UDP probes when
+                       mDNS finds nothing (default false)
+  --sweep-port N       UDP port of the sweep; must match the receiver's
+                       (default %[3]d)
   -v, --verbose        more log output; repeat for debug (default: warnings
                        and errors only)
 `
@@ -69,6 +72,8 @@ type sendFlags struct {
 	retryTimeout time.Duration
 	verify       bool
 	noMDNS       bool
+	noSweep      bool
+	sweepPort    int
 	positionals  []string
 }
 
@@ -81,6 +86,7 @@ func addSendFlags(fs *pflag.FlagSet) {
 	fs.Duration("retry-timeout", send.DefaultRetryTimeout, "")
 	fs.Bool("verify", false, "")
 	fs.Bool("no-mdns", false, "")
+	addSweepFlags(fs)
 }
 
 // sendFlagsFrom reads the parsed send flags (command line and config file
@@ -93,6 +99,10 @@ func sendFlagsFrom(c *cobra.Command, args []string) (*sendFlags, error) {
 	f.retryTimeout, _ = fl.GetDuration("retry-timeout")
 	f.verify, _ = fl.GetBool("verify")
 	f.noMDNS, _ = fl.GetBool("no-mdns")
+	var err error
+	if f.noSweep, f.sweepPort, err = sweepFlagsFrom(fl); err != nil {
+		return nil, err
+	}
 	if f.retryTimeout < 0 {
 		return nil, usagef("--retry-timeout must not be negative")
 	}
@@ -180,8 +190,8 @@ func runSend(ctx context.Context, f *sendFlags, verbose int, env *environment) i
 	if len(paths) == 0 {
 		return usageError(env, "nothing to send: give one or more files or directories")
 	}
-	if f.noMDNS && f.to == "" {
-		return usageError(env, "--no-mdns requires --to HOST:PORT")
+	if f.noMDNS && f.noSweep && f.to == "" {
+		return usageError(env, "--no-mdns and --no-sweep together require --to HOST:PORT")
 	}
 	c, err := readCode(posCode, f.codeFile, env)
 	if err != nil {
@@ -220,12 +230,13 @@ func runSend(ctx context.Context, f *sendFlags, verbose int, env *environment) i
 		// DISC-4: --to always takes precedence; discovery is only the
 		// fallback when no address was given.
 		tag := pairer.DiscoveryTag()
+		d := discovery{mdns: !f.noMDNS, sweep: !f.noSweep, sweepPort: f.sweepPort}
 		opts.Resolve = func(ctx context.Context) (string, error) {
-			addr, err := browse(ctx, tag, log)
+			addr, err := browse(ctx, tag, d, log)
 			if err != nil {
-				// DISC-3: point at --to and at the usual cause.
-				fe := fail.New(fail.Network, fmt.Sprintf("could not find the receiver on the local network within %v", discover.DefaultTimeout),
-					"use --to HOST:PORT with an address the receiver printed; mDNS is often blocked on guest and corporate networks", err)
+				// DISC-3: point at --to and at the usual causes.
+				fe := fail.New(fail.Network, fmt.Sprintf("could not find the receiver on the local network within %v", discoveryTimeout(d)),
+					discoveryHint(d), err)
 				fe.Final = true // DISC-3: fail, do not retry discovery
 				return "", fe
 			}
