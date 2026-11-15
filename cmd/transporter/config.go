@@ -44,8 +44,8 @@ import (
 // long-lived secret on disk.
 var configKeys = map[string][]string{
 	"":        {"verbose"},
-	"send":    {"to", "retry-timeout", "verify", "no-mdns"},
-	"receive": {"port", "bind", "overwrite", "verify", "idle-timeout", "no-mdns"},
+	"send":    {"to", "retry-timeout", "verify", "no-mdns", "no-sweep", "sweep-port"},
+	"receive": {"port", "bind", "overwrite", "verify", "idle-timeout", "no-mdns", "no-sweep", "sweep-port"},
 }
 
 // configFileName is the default config file inside the user's config

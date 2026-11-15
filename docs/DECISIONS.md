@@ -146,6 +146,25 @@ override earlier ones where they conflict.
   `github.com/brutella/dnssd` (2024) pulls in `vishvananda/netlink`.
 - **Decision:** `hashicorp/mdns`, behind the `internal/discover` interface.
 
+### 1.5b UDP unicast sweep (DISC-6 to DISC-9)
+
+Searched on 2026-11-14 for an existing Go library that finds a peer by
+unicast when multicast is blocked:
+
+- `github.com/schollz/peerdiscovery` (written for croc), the most widely
+  used Go LAN-discovery library, uses UDP multicast only, so it fails on
+  the same networks as mDNS. `a1phat0ny/discover` is multicast too, and
+  `solcates/broadcast` uses IPv4 broadcast, which the same networks
+  usually drop as well.
+- No maintained Go library implements a unicast subnet sweep. The pattern
+  is established in applications: LocalSend falls back to sending its
+  register request to every address of the local /24 when multicast does
+  not work, and its third-party Go implementation does the same. Each
+  implements it itself.
+- **Decision:** implement it in `internal/discover` with the standard
+  library only (`net`, `net/netip`), about 300 lines, behind the same
+  `Advertiser` and `Browser` interfaces. No dependency is added.
+
 ### 1.6 License scanning (LIC-4)
 
 - `github.com/google/go-licenses/v2` v2.0.1 (2025-09-08), Apache-2.0,
@@ -424,6 +443,47 @@ and compared word for word with the SPDX copy (`spdx/license-list-data`,
   on. If none works, it pauses 250 ms between rounds and keeps trying until
   the timeout (DISC-3), then reports the last error. The library call is a
   package variable so unit tests can simulate per-family send failures.
+- **D-5b.7 UDP unicast sweep (maintainer request, 2026-11-14).** A
+  fallback for networks that drop multicast but pass unicast (switches
+  with IGMP snooping and no querier, some corporate and guest Wi-Fi).
+  - *Port*: UDP 29873. The IANA registry (updated 2026-11-10) lists it as
+    unassigned. It is below the ephemeral ranges of Linux (32768 to
+    60999), macOS and Windows (49152 and up), so an outgoing connection
+    cannot be holding it. The sender cannot learn the receiver's TCP port,
+    which is random by default, so the sweep needs a fixed port.
+    `--sweep-port` changes it, for a port a firewall already allows, and
+    lets the e2e tests use a free port (TEST-8). A second receiver on one
+    machine cannot bind the port; it warns and is reachable by mDNS or
+    `--to`.
+  - *Order*: the sweep runs only after mDNS has found nothing (5 s), for
+    3 s, so a network where mDNS works never sees sweep traffic, and the
+    worst case before the DISC-3 message is 8 s. Running both at once
+    would be faster on blocked networks but would scan every network on
+    every run.
+  - *Targets*: 127.0.0.1, then each IPv4 subnet of an up, running,
+    non-loopback interface. Running excludes bridges with no carrier,
+    such as an unused `docker0`. A subnet larger than /22 is cut to the
+    /22 around the sender's own address (a /16 would be 65,534 probes),
+    and at most 4,096 addresses are probed. IPv6 subnets (/64) cannot be
+    swept, and mDNS covers IPv6.
+  - *Pacing*: batches of 64 probes 20 ms apart (a /22 takes about 0.3 s),
+    and a new round every second, which covers lost packets and a
+    receiver that starts late.
+  - *Wire format and checks* (protocol.md section 9): the probe carries
+    the discovery tag, which mDNS already makes public, and a random
+    nonce. The receiver answers only its own tag, so a port scan without
+    the tag gets no response. The reply echoes the nonce, so a host that
+    has not seen the probe cannot answer it, and is 2 bytes shorter than
+    the probe, so it cannot amplify. The reply carries the TCP port; the
+    sender connects to the reply's source address, as for mDNS (D-5b.3).
+  - *Flags*: `--no-sweep` and `--sweep-port` on both commands and in the
+    config file. `--no-mdns` alone no longer requires `--to`, because the
+    sweep is still on; `--no-mdns --no-sweep` does.
+  - *Verification*: unit tests sweep only 127.0.0.1 on a free port. The
+    e2e tests run real binaries over loopback; the sender's sweep also
+    probes the real local subnets, which no host answers. A sweep between
+    two machines is not tested automatically, and the development
+    machine's firewalld blocks inbound UDP 29873 unless it is opened.
 
 ## 6. Dependencies (NFR-5)
 
@@ -443,6 +503,8 @@ and compared word for word with the SPDX copy (`spdx/license-list-data`,
 | github.com/spf13/pflag | BSD-3-Clause | Flag parsing used by cobra; also used directly to define the flags. |
 | github.com/inconshreveable/mousetrap | Apache-2.0 | Required by cobra (on Windows, detects a double-click start from Explorer). |
 | go.yaml.in/yaml/v3 | MIT (with an Apache-2.0 NOTICE, copied into THIRD_PARTY_LICENSES) | Parses the YAML config file (D-9.9); no dependencies of its own. Maintained by the YAML organization (github.com/yaml/go-yaml); v3.0.6, 2026-10-13. |
+
+The UDP sweep (D-5b.7) adds no dependency.
 
 Verified with `go-licenses report ./cmd/transporter` (phase 7). The binary's
 dependency closure is noise (BSD-3-Clause), hashicorp/mdns (MIT),

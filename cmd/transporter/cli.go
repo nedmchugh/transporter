@@ -15,7 +15,9 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
+	"github.com/nedmchugh/transporter/internal/discover"
 	"github.com/nedmchugh/transporter/internal/fail"
 	"github.com/nedmchugh/transporter/internal/meta"
 )
@@ -137,9 +139,9 @@ func verboseOf(c *cobra.Command) int {
 func printHelp(env *environment, c *cobra.Command) {
 	switch c.Name() {
 	case "send":
-		fmt.Fprintf(env.stderr, sendUsage, meta.Name, CodeEnv)
+		fmt.Fprintf(env.stderr, sendUsage, meta.Name, CodeEnv, discover.SweepPort)
 	case "receive":
-		fmt.Fprintf(env.stderr, receiveUsage, meta.Name)
+		fmt.Fprintf(env.stderr, receiveUsage, meta.Name, discover.SweepPort)
 	default:
 		fmt.Fprintf(env.stderr, globalUsage, meta.Name, defaultConfigHint(env))
 	}
@@ -160,4 +162,20 @@ func defaultConfigHint(env *environment) string {
 		return p
 	}
 	return "(none: no user config directory)"
+}
+
+// addSweepFlags defines the UDP sweep flags shared by send and receive
+// (DISC-9).
+func addSweepFlags(fs *pflag.FlagSet) {
+	fs.Bool("no-sweep", false, "")
+	fs.Int("sweep-port", discover.SweepPort, "")
+}
+
+func sweepFlagsFrom(fl *pflag.FlagSet) (noSweep bool, port int, err error) {
+	noSweep, _ = fl.GetBool("no-sweep")
+	port, _ = fl.GetInt("sweep-port")
+	if port < 1 || port > 65535 {
+		return false, 0, usagef("--sweep-port must be between 1 and 65535")
+	}
+	return noSweep, port, nil
 }

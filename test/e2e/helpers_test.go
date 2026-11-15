@@ -53,12 +53,12 @@ type receiver struct {
 	exit   int
 }
 
-// startReceiver runs `transporter receive --bind 127.0.0.1 --no-mdns ARGS`
-// and waits for its banner (RCV-2: "Listening on ADDR" lines, then
+// startReceiver runs `transporter receive --bind 127.0.0.1 --no-mdns
+// --no-sweep ARGS` and waits for its banner (RCV-2: "Listening on ADDR" lines, then
 // "Code: CODE").
 func startReceiver(t *testing.T, args ...string) *receiver {
 	t.Helper()
-	full := append([]string{"receive", "--bind", "127.0.0.1", "--no-mdns"}, args...)
+	full := append([]string{"receive", "--bind", "127.0.0.1", "--no-mdns", "--no-sweep"}, args...)
 	return startReceiverRaw(t, full...)
 }
 

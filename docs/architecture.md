@@ -20,7 +20,7 @@ flowchart LR
         manifest["manifest<br/>walk, path rules,<br/>collisions"]
         send["send<br/>session, pipelining,<br/>reconnect + backoff"]
         recv["recv<br/>sessions, os.Root I/O,<br/>.part, finalize"]
-        discover["discover<br/>mDNS (hashicorp/mdns)"]
+        discover["discover<br/>mDNS (hashicorp/mdns),<br/>UDP sweep"]
         progress["progress<br/>status line"]
         fail["fail<br/>error kinds,<br/>exit codes"]
     end
@@ -41,7 +41,7 @@ flowchart LR
 | `internal/manifest` | Walking local sources into entries, wire-path validation, Windows name rules, collision detection. |
 | `internal/send` | The sender session: manifest streaming, NEED handling, pipelined file sending, the retry loop. |
 | `internal/recv` | The receiver: accept loop, authentication, session supersession and BUSY, manifest validation, the NEED planner, the per-file state machine, finalization. All destination I/O goes through `os.Root`. |
-| `internal/discover` | mDNS advertising and browsing behind `Advertiser` and `Browser` interfaces. |
+| `internal/discover` | mDNS advertising and browsing, and the UDP unicast sweep that is the fallback when mDNS finds nothing, both behind the `Advertiser` and `Browser` interfaces. |
 | `internal/progress` | Thread-safe counters and the stderr renderer (TTY or plain). |
 | `internal/fail` | Error kinds (transient vs fatal), user-facing messages and hints, exit codes and their precedence. |
 | `internal/hashpipe` | Runs a hash on a helper goroutine so hashing overlaps with encryption and disk writes (NFR-3). |

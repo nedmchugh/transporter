@@ -43,7 +43,11 @@ Flags:
                        modification time (default false)
   --idle-timeout DUR   give up after this long without sender activity
                        (default 10m0s; 0 waits forever)
-  --no-mdns            do not advertise on the local network (default false)
+  --no-mdns            do not advertise on the local network with mDNS
+                       (default false)
+  --no-sweep           do not answer senders' UDP sweep probes (default
+                       false)
+  --sweep-port N       UDP port to answer the sweep on (default %[2]d)
   -v, --verbose        more log output; repeat for debug (default: warnings
                        and errors only)
 `
@@ -56,6 +60,8 @@ type receiveFlags struct {
 	verify      bool
 	idleTimeout time.Duration
 	noMDNS      bool
+	noSweep     bool
+	sweepPort   int
 	dest        string
 }
 
@@ -69,6 +75,7 @@ func addReceiveFlags(fs *pflag.FlagSet) {
 	fs.Bool("verify", false, "")
 	fs.Duration("idle-timeout", recv.DefaultIdleTimeout, "")
 	fs.Bool("no-mdns", false, "")
+	addSweepFlags(fs)
 }
 
 // receiveFlagsFrom reads the parsed receive flags (command line and config
@@ -82,6 +89,10 @@ func receiveFlagsFrom(c *cobra.Command, args []string) (*receiveFlags, error) {
 	f.verify, _ = fl.GetBool("verify")
 	f.idleTimeout, _ = fl.GetDuration("idle-timeout")
 	f.noMDNS, _ = fl.GetBool("no-mdns")
+	var err error
+	if f.noSweep, f.sweepPort, err = sweepFlagsFrom(fl); err != nil {
+		return nil, err
+	}
 	switch len(args) {
 	case 0:
 		f.dest = "."
@@ -145,10 +156,9 @@ func runReceive(ctx context.Context, f *receiveFlags, verbose int, env *environm
 	}
 	fmt.Fprintf(env.stderr, "On the sending machine, run: %s send CODE PATH...  (add --to HOST:PORT if it cannot find this receiver)\n", meta.Name)
 
-	if !f.noMDNS {
-		stopAdv := advertise(ctx, port, pairer.DiscoveryTag(), log)
-		defer stopAdv()
-	}
+	d := discovery{mdns: !f.noMDNS, sweep: !f.noSweep, sweepPort: f.sweepPort}
+	stopAdv := advertise(ctx, port, pairer.DiscoveryTag(), d, f.bind, log)
+	defer stopAdv()
 
 	pctx, stopProg := context.WithCancel(ctx)
 	go prog.Run(pctx, 0)

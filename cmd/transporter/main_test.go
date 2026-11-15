@@ -190,7 +190,11 @@ func TestRunUsage(t *testing.T) {
 		{[]string{"receive", "-h"}, 0, "--idle-timeout DUR"},
 		{[]string{"send"}, 2, "nothing to send"},
 		{[]string{"send", validCode}, 2, "nothing to send"},
-		{[]string{"send", "--no-mdns", validCode, "x"}, 2, "--no-mdns requires --to"},
+		{[]string{"send", "--no-mdns", "--no-sweep", validCode, "x"}, 2, "--no-mdns and --no-sweep together require --to"},
+		{[]string{"send", "--sweep-port", "0", "x"}, 2, "--sweep-port must be between 1 and 65535"},
+		{[]string{"receive", "--sweep-port", "65536"}, 2, "--sweep-port must be between 1 and 65535"},
+		{[]string{"send", "--help"}, 0, "--sweep-port N"},
+		{[]string{"receive", "--help"}, 0, "(default 29873)"},
 		{[]string{"send", "--retry-timeout", "-1s", "x"}, 2, "must not be negative"},
 		{[]string{"send", "--to", "h:1", "x"}, 2, "no code given"},
 		{[]string{"receive", "--port", "70000"}, 2, "--port"},
@@ -265,12 +269,12 @@ func TestParseReceiveFlags(t *testing.T) {
 	env, _, _ := testEnv("", nil, false)
 	got, exit := capture(t, env, "receive")
 	f := got.receive
-	if exit != 0 || f.dest != "." || f.port != 0 || f.bind != "" || f.overwrite || f.verify || f.noMDNS || f.idleTimeout != 10*time.Minute {
+	if exit != 0 || f.dest != "." || f.port != 0 || f.bind != "" || f.overwrite || f.verify || f.noMDNS || f.noSweep || f.sweepPort != 29873 || f.idleTimeout != 10*time.Minute {
 		t.Fatalf("defaults: %+v exit %d", f, exit)
 	}
-	got, exit = capture(t, env, "receive", "--port", "4000", "dest", "--bind", "127.0.0.1", "--overwrite", "--verify", "--idle-timeout", "0", "--no-mdns", "-v")
+	got, exit = capture(t, env, "receive", "--port", "4000", "dest", "--bind", "127.0.0.1", "--overwrite", "--verify", "--idle-timeout", "0", "--no-mdns", "--no-sweep", "--sweep-port", "4001", "-v")
 	f = got.receive
-	if exit != 0 || f.dest != "dest" || f.port != 4000 || f.bind != "127.0.0.1" || !f.overwrite || !f.verify || !f.noMDNS || f.idleTimeout != 0 || got.verbose != 1 {
+	if exit != 0 || f.dest != "dest" || f.port != 4000 || f.bind != "127.0.0.1" || !f.overwrite || !f.verify || !f.noMDNS || !f.noSweep || f.sweepPort != 4001 || f.idleTimeout != 0 || got.verbose != 1 {
 		t.Fatalf("set: %+v exit %d", f, exit)
 	}
 }
@@ -283,12 +287,12 @@ func TestParseSendFlags(t *testing.T) {
 	env, _, _ := testEnv("", nil, false)
 	got, exit := capture(t, env, "send", "a")
 	f := got.send
-	if exit != 0 || f.to != "" || f.codeFile != "" || f.retryTimeout != 10*time.Minute || f.verify || f.noMDNS {
+	if exit != 0 || f.to != "" || f.codeFile != "" || f.retryTimeout != 10*time.Minute || f.verify || f.noMDNS || f.noSweep || f.sweepPort != 29873 {
 		t.Fatalf("defaults: %+v exit %d", f, exit)
 	}
-	got, exit = capture(t, env, "send", "a", "--to", "h:1", "--code-file", "-", "--retry-timeout", "0", "--verify", "--no-mdns", "b")
+	got, exit = capture(t, env, "send", "a", "--to", "h:1", "--code-file", "-", "--retry-timeout", "0", "--verify", "--no-mdns", "--no-sweep", "--sweep-port", "4001", "b")
 	f = got.send
-	if exit != 0 || f.to != "h:1" || f.codeFile != "-" || f.retryTimeout != 0 || !f.verify || !f.noMDNS || !slices.Equal(f.positionals, []string{"a", "b"}) {
+	if exit != 0 || f.to != "h:1" || f.codeFile != "-" || f.retryTimeout != 0 || !f.verify || !f.noMDNS || !f.noSweep || f.sweepPort != 4001 || !slices.Equal(f.positionals, []string{"a", "b"}) {
 		t.Fatalf("set: %+v exit %d", f, exit)
 	}
 }
