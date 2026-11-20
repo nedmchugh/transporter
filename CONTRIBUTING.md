@@ -72,7 +72,8 @@ Other tools (`go-licenses`, `govulncheck`) run at pinned versions through
   obvious.
 - Open a pull request against `main` and fill in the template. CI must be
   green: the required checks are listed in `docs/branch-protection.md`.
-  Pull requests need a review from a code owner.
+  Pull requests from outside contributors are reviewed by a code owner
+  before merging.
 - Add an entry under "Unreleased" in `CHANGELOG.md` for user-visible
   changes.
 

@@ -40,8 +40,11 @@ change too; update the protection rule at the same time.
 
 ## Recommended settings for `main`
 
-- Require a pull request before merging, with at least one approving
-  review, dismissal of stale approvals, and review from code owners.
+- Require a pull request before merging, with no required approvals:
+  the project has a single maintainer, and GitHub does not let an author
+  approve their own pull request. Dismiss stale approvals. When there are
+  other regular contributors, require one approving review and review from
+  code owners (`.github/CODEOWNERS`).
 - Require the status checks above to pass, and require branches to be up to
   date before merging.
 - Require conversation resolution before merging.
@@ -86,9 +89,9 @@ gh api -X PUT repos/nedmchugh/transporter/branches/main/protection \
   },
   "enforce_admins": true,
   "required_pull_request_reviews": {
-    "required_approving_review_count": 1,
+    "required_approving_review_count": 0,
     "dismiss_stale_reviews": true,
-    "require_code_owner_reviews": true
+    "require_code_owner_reviews": false
   },
   "restrictions": null,
   "required_linear_history": true,
