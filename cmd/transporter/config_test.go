@@ -119,7 +119,7 @@ func TestConfigRejects(t *testing.T) {
 		{"unknown key in section", "send", "send:\n  tto: h:1\n", `unknown setting "send.tto"`},
 		{"global flag in section", "send", "send:\n  verbose: 1\n", `unknown setting "send.verbose"`},
 		{"receive flag under send", "send", "send:\n  port: 1\n", `unknown setting "send.port"`},
-		{"bad duration", "receive", "receive:\n  idle-timeout: 600\n", "missing unit"},
+		{"bad duration", "receive", "receive:\n  idle-timeout: 600\n", `receive.idle-timeout: invalid value "600"`},
 		{"bad bool", "receive", "receive:\n  verify: maybe\n", "receive.verify"},
 		{"list", "receive", "receive:\n  port: [1, 2]\n", "must be a single value"},
 		{"range checked like a flag", "receive", "receive:\n  port: 70000\n", "--port must be between"},
