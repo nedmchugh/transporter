@@ -702,3 +702,43 @@ func TestCloseGracefullyTimeout(t *testing.T) {
 		t.Fatalf("took %v", took)
 	}
 }
+
+// TestCloseGracefullyTimeoutWithReader checks the same bound when the peer
+// keeps sending (heartbeats) and another goroutine, blocked in ReadFrame as
+// the receiver's main loop is, keeps moving the read deadline forward
+// (TestNoSpace in internal/recv).
+func TestCloseGracefullyTimeoutWithReader(t *testing.T) {
+	testutil.CheckLeaks(t)
+	c, s := tcpPair(t)
+	defer c.Close()
+	stop := make(chan struct{})
+	defer close(stop)
+	go func() {
+		for {
+			select {
+			case <-stop:
+				return
+			case <-time.After(10 * time.Millisecond):
+			}
+			if c.WriteFrame([]byte("heartbeat")) != nil {
+				return
+			}
+		}
+	}()
+	go func() {
+		for {
+			if s.SetReadDeadline(time.Now().Add(time.Minute)) != nil {
+				return
+			}
+			if _, err := s.ReadFrame(); errors.Is(err, net.ErrClosed) {
+				return
+			}
+		}
+	}()
+	start := time.Now()
+	_ = s.CloseGracefully(200 * time.Millisecond)
+	took := time.Since(start)
+	if took > time.Second {
+		t.Fatalf("took %v", took)
+	}
+}

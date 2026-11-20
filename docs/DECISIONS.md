@@ -395,7 +395,12 @@ and compared word for word with the SPDX copy (`spdx/license-list-data`,
   `Link.Abort` therefore closes gracefully once the ERROR is written: it
   shuts down the write side, discards incoming data until the peer closes
   or the abort timeout (1 s) passes, then closes. That adds at most 1 s to
-  an abort, bounded even against a peer that never closes.
+  an abort, bounded even against a peer that never closes. The bound is a
+  timer that closes the socket, not only the read deadline: when the abort
+  comes from a helper goroutine (the free-space check, TestNoSpace), the
+  main loop may be blocked reading the same socket, holding its read lock
+  and moving the deadline on every heartbeat, so the drain could wait
+  forever. `Link.Recv` also stops reading once the link is closing.
 
 ## 5b. Discovery
 
