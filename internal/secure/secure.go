@@ -359,12 +359,21 @@ func (c *Conn) Close() error { return c.raw.Close() }
 // sees the message, then end of stream), and whatever the peer still sends
 // is discarded until it closes or timeout passes. The raw reads bypass the
 // frame reader's buffer, so a ReadFrame blocked in another goroutine is
-// not disturbed beyond seeing the deadline or the close. Connections
+// not disturbed beyond seeing the deadline or the close. But that reader
+// holds the socket's read lock, and its caller may move the read deadline
+// (Link.Recv does, after every heartbeat the peer sends), so the deadline
+// alone cannot bound the drain: a timer closes the connection when timeout
+// passes. Connections
 // without a write half-close (net.Pipe, test wrappers) are just closed.
 func (c *Conn) CloseGracefully(timeout time.Duration) error {
 	if cw, ok := c.raw.(interface{ CloseWrite() error }); ok && cw.CloseWrite() == nil {
+		closed := make(chan error, 1)
+		t := time.AfterFunc(timeout, func() { closed <- c.raw.Close() })
 		if c.raw.SetReadDeadline(time.Now().Add(timeout)) == nil {
 			_, _ = io.Copy(io.Discard, c.raw)
+		}
+		if !t.Stop() {
+			return <-closed // the timer closed the connection
 		}
 	}
 	return c.raw.Close()

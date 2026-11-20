@@ -151,6 +151,13 @@ func (l *Link) writeLocked(b []byte) error {
 // alias the connection's read buffer and are valid until the next Recv.
 func (l *Link) Recv() (Message, error) {
 	for {
+		// Once the link is closing, stop reading: a graceful close may be
+		// draining the connection and needs the read side to itself.
+		select {
+		case <-l.closed:
+			return nil, ErrLinkClosed
+		default:
+		}
 		if err := l.fc.SetReadDeadline(time.Now().Add(l.cfg.DeadAfter)); err != nil {
 			return nil, l.closedOr(err)
 		}
