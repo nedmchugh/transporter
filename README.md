@@ -218,9 +218,9 @@ such as skipped symlinks, are listed but do not change the exit code.
 
 - **"could not find the receiver on the local network"**: mDNS is often
   blocked on guest, corporate and some home networks, and by host firewalls.
-  The sender then sweeps its local subnet (up to 1,022 addresses) with UDP
-  probes for 3 s, which needs inbound UDP port 29873 open on the receiving
-  machine and both machines on the same subnet. Otherwise, use
+  The sender then sweeps its local subnets (up to 1,022 addresses each,
+  4,096 in all) with UDP probes for 3 s, which needs inbound UDP port 29873
+  open on the receiving machine and both machines on the same subnet. Otherwise, use
   `--to HOST:PORT` with an address the receiver printed. On networks where
   scanning is unwelcome, turn the sweep off with `--no-sweep` or
   `no-sweep: true` in the config file.

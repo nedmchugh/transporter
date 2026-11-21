@@ -13,12 +13,16 @@ import (
 	"errors"
 	"log/slog"
 	"net"
+	"net/netip"
+	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/hashicorp/mdns"
+	"github.com/miekg/dns"
 )
 
 func TestTagText(t *testing.T) {
@@ -137,19 +141,34 @@ func TestMatch(t *testing.T) {
 	}
 }
 
-// fakeQuery replaces the library query for one test. It records which
-// address families each call enabled, fails calls that enable IPv6 (as
-// the library does when the IPv6 send fails), and answers IPv4-only calls
-// with entry, if given.
+// useInterfaces makes multicastInterfaces return ifaces for one test; nil
+// means the system default only.
+func useInterfaces(t *testing.T, ifaces ...*net.Interface) {
+	t.Helper()
+	old := multicastInterfaces
+	t.Cleanup(func() { multicastInterfaces = old })
+	multicastInterfaces = func() []*net.Interface { return ifaces }
+}
+
+// family names the address families a query enabled.
+func family(p *mdns.QueryParam) string {
+	return map[[2]bool]string{
+		{false, false}: "both", {false, true}: "v4", {true, false}: "v6",
+	}[[2]bool{p.DisableIPv4, p.DisableIPv6}]
+}
+
+// fakeQuery replaces the library query for one test, on the system default
+// interface only. It records which address families each call enabled,
+// fails calls that enable IPv6 (as the library does when the IPv6 send
+// fails), and answers IPv4-only calls with entry, if given.
 func fakeQuery(t *testing.T, entry *mdns.ServiceEntry) *[]string {
 	t.Helper()
+	useInterfaces(t)
 	var calls []string
 	old := queryContext
 	t.Cleanup(func() { queryContext = old })
 	queryContext = func(ctx context.Context, p *mdns.QueryParam) error {
-		calls = append(calls, map[[2]bool]string{
-			{false, false}: "both", {false, true}: "v4", {true, false}: "v6",
-		}[[2]bool{p.DisableIPv4, p.DisableIPv6}])
+		calls = append(calls, family(p))
 		if !p.DisableIPv6 {
 			return errors.New("sendto: no route to host")
 		}
@@ -190,6 +209,7 @@ func TestFindFallsBackToIPv4(t *testing.T) {
 // Find keeps trying until the timeout instead of failing at once, then
 // reports ErrNotFound with the cause.
 func TestFindFailureWaitsForTimeout(t *testing.T) {
+	useInterfaces(t)
 	old := queryContext
 	t.Cleanup(func() { queryContext = old })
 	n := 0
@@ -221,5 +241,237 @@ func TestFindPrefersWorkingFamily(t *testing.T) {
 	got := strings.Join(*calls, ",")
 	if !strings.HasPrefix(got, "both,v4,v4") || strings.Count(got, "both") != 1 {
 		t.Fatalf("calls %s, want both then only v4", got)
+	}
+}
+
+// TestFindQueriesEveryInterface covers DISC-1 and DISC-2 on a multi-homed
+// sender: every round queries on each interface, each interface keeps its
+// own address-family fallback, and the receiver is found on the interface
+// that is not the first one.
+func TestFindQueriesEveryInterface(t *testing.T) {
+	tag := [4]byte{1, 2, 3, 4}
+	wifi := &net.Interface{Index: 7, Name: "wlan0"}
+	wired := &net.Interface{Index: 8, Name: "eth1"}
+	useInterfaces(t, wifi, wired)
+	var mu sync.Mutex
+	calls := map[string][]string{}
+	old := queryContext
+	t.Cleanup(func() { queryContext = old })
+	queryContext = func(ctx context.Context, p *mdns.QueryParam) error {
+		if p.Interface == nil {
+			t.Error("query on the default interface, want a named one")
+			return errors.New("no interface")
+		}
+		mu.Lock()
+		calls[p.Interface.Name] = append(calls[p.Interface.Name], family(p))
+		round := len(calls[p.Interface.Name])
+		mu.Unlock()
+		switch p.Interface.Name {
+		case "wlan0": // no IPv6 multicast route; no receiver
+			if !p.DisableIPv6 {
+				return errors.New("sendto: no route to host")
+			}
+		case "eth1": // the receiver, found in the second round
+			if round >= 2 {
+				p.Entries <- &mdns.ServiceEntry{AddrV4: net.IPv4(192, 0, 2, 9), Port: 41111, InfoFields: []string{TagText(tag)}}
+				return nil
+			}
+		}
+		select {
+		case <-ctx.Done():
+		case <-time.After(50 * time.Millisecond):
+		}
+		return nil
+	}
+	addr, err := MDNS{}.Find(context.Background(), tag, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if addr != "192.0.2.9:41111" {
+		t.Fatalf("addr %q", addr)
+	}
+	if got := strings.Join(calls["wlan0"], ","); got != "both,v4,v4" {
+		t.Errorf("wlan0 calls %s, want both,v4,v4", got)
+	}
+	if got := strings.Join(calls["eth1"], ","); got != "both,both" {
+		t.Errorf("eth1 calls %s, want both,both", got)
+	}
+}
+
+// TestFindReportsInterface checks that a failure names the interface.
+func TestFindReportsInterface(t *testing.T) {
+	useInterfaces(t, &net.Interface{Index: 3, Name: "eth9"})
+	old := queryContext
+	t.Cleanup(func() { queryContext = old })
+	queryContext = func(context.Context, *mdns.QueryParam) error { return errors.New("sendto: network is down") }
+	_, err := MDNS{}.Find(context.Background(), [4]byte{1}, 300*time.Millisecond)
+	if !errors.Is(err, ErrNotFound) || !strings.Contains(err.Error(), "eth9: sendto") {
+		t.Fatalf("err %v", err)
+	}
+}
+
+// TestPick covers DISC-2 with a multi-homed receiver: of its answers, the
+// address on the sender's own subnet wins over a container or VPN address,
+// then IPv4 over IPv6.
+func TestPick(t *testing.T) {
+	want := TagText([4]byte{1, 2, 3, 4})
+	v4 := func(ip string) *mdns.ServiceEntry {
+		return &mdns.ServiceEntry{InfoFields: []string{want}, Port: 5000, AddrV4: net.ParseIP(ip)}
+	}
+	v6 := func(ip string) *mdns.ServiceEntry {
+		return &mdns.ServiceEntry{InfoFields: []string{want}, Port: 5000, AddrV6IPAddr: &net.IPAddr{IP: net.ParseIP(ip)}}
+	}
+	other := &mdns.ServiceEntry{InfoFields: []string{"tag=00000000"}, Port: 6000, AddrV4: net.ParseIP("10.5.1.50")}
+	local := []netip.Prefix{netip.MustParsePrefix("10.5.1.0/24"), netip.MustParsePrefix("2001:db8:1::/64")}
+	tests := []struct {
+		name    string
+		entries []*mdns.ServiceEntry
+		want    string
+	}{
+		{"local after container", []*mdns.ServiceEntry{v4("172.17.0.1"), v4("10.5.1.88")}, "10.5.1.88:5000"},
+		{"local IPv6 over remote IPv4", []*mdns.ServiceEntry{v4("172.17.0.1"), v6("2001:db8:1::5")}, "[2001:db8:1::5]:5000"},
+		{"IPv4 over IPv6", []*mdns.ServiceEntry{v6("2001:db8:2::5"), v4("192.0.2.1")}, "192.0.2.1:5000"},
+		{"first of equals", []*mdns.ServiceEntry{v4("192.0.2.1"), v4("192.0.2.2")}, "192.0.2.1:5000"},
+		{"other tag on my subnet", []*mdns.ServiceEntry{other, v4("192.0.2.1")}, "192.0.2.1:5000"},
+		{"nothing", []*mdns.ServiceEntry{other, nil}, ""},
+	}
+	for _, tc := range tests {
+		got, ok := pick(tc.entries, want, local)
+		if got != tc.want || ok != (tc.want != "") {
+			t.Errorf("%s: %q %v, want %q", tc.name, got, ok, tc.want)
+		}
+	}
+}
+
+// TestZone covers DISC-1 for a multi-homed receiver: each address is its
+// own service instance with its own host name and that address alone, so
+// the sender's library keeps every address instead of the last one.
+func TestZone(t *testing.T) {
+	tag := [4]byte{0xca, 0xfe, 0xba, 0xbe}
+	z, err := newZone(4321, tag, []net.IP{net.ParseIP("10.5.1.88"), net.ParseIP("172.17.0.1"), net.ParseIP("2001:db8::7")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	recs := z.Records(dns.Question{Name: Service + ".local.", Qtype: dns.TypePTR, Qclass: dns.ClassINET})
+	ptrs, hosts := map[string]bool{}, map[string]string{}
+	for _, rr := range recs {
+		switch rr := rr.(type) {
+		case *dns.PTR:
+			ptrs[rr.Ptr] = true
+		case *dns.A:
+			if _, dup := hosts[rr.Hdr.Name]; dup {
+				t.Errorf("host %s has two addresses", rr.Hdr.Name)
+			}
+			hosts[rr.Hdr.Name] = rr.A.String()
+		case *dns.AAAA:
+			if _, dup := hosts[rr.Hdr.Name]; dup {
+				t.Errorf("host %s has two addresses", rr.Hdr.Name)
+			}
+			hosts[rr.Hdr.Name] = rr.AAAA.String()
+		}
+	}
+	if len(ptrs) != 3 || len(hosts) != 3 {
+		t.Fatalf("%d instances and %d hosts, want 3 each: %v", len(ptrs), len(hosts), recs)
+	}
+	got := slices.Sorted(func(yield func(string) bool) {
+		for _, a := range hosts {
+			if !yield(a) {
+				return
+			}
+		}
+	})
+	if strings.Join(got, ",") != "10.5.1.88,172.17.0.1,2001:db8::7" {
+		t.Fatalf("addresses %v", got)
+	}
+	if _, err := newZone(4321, tag, nil); err == nil {
+		t.Fatal("empty zone accepted")
+	}
+}
+
+type fakeServer struct{ down *int }
+
+func (f fakeServer) Shutdown() error { *f.down++; return nil }
+
+// TestAdvertiseEveryInterface covers DISC-1 on a multi-homed receiver: a
+// responder runs on each interface, one that fails does not stop the
+// others, and Close stops them all.
+func TestAdvertiseEveryInterface(t *testing.T) {
+	useInterfaces(t, &net.Interface{Index: 2, Name: "eth0"}, &net.Interface{Index: 3, Name: "wg0"}, &net.Interface{Index: 4, Name: "wlan0"})
+	var started []string
+	down := 0
+	old := newServer
+	t.Cleanup(func() { newServer = old })
+	newServer = func(c *mdns.Config) (shutdowner, error) {
+		if c.Zone == nil {
+			t.Error("no zone")
+		}
+		name := ifaceName(c.Iface)
+		if name == "wg0" {
+			return nil, errors.New("no multicast listeners could be started")
+		}
+		started = append(started, name)
+		return fakeServer{&down}, nil
+	}
+	c, err := MDNS{}.Advertise(context.Background(), 4321, [4]byte{1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(started, ","); got != "eth0,wlan0" {
+		t.Fatalf("responders on %s, want eth0,wlan0", got)
+	}
+	if err := c.Close(); err != nil || down != 2 {
+		t.Fatalf("Close: %v, %d shut down", err, down)
+	}
+}
+
+// TestAdvertiseFallsBackToDefault checks that a receiver whose interfaces
+// all fail (or that has none) still tries the system default, and that
+// failing there too is an error naming the causes.
+func TestAdvertiseFallsBackToDefault(t *testing.T) {
+	useInterfaces(t, &net.Interface{Index: 2, Name: "eth0"})
+	var tried []string
+	ok := true
+	old := newServer
+	t.Cleanup(func() { newServer = old })
+	newServer = func(c *mdns.Config) (shutdowner, error) {
+		tried = append(tried, ifaceName(c.Iface))
+		if c.Iface != nil || !ok {
+			return nil, errors.New("bind failed")
+		}
+		return fakeServer{new(int)}, nil
+	}
+	c, err := MDNS{}.Advertise(context.Background(), 4321, [4]byte{1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = c.Close()
+	if got := strings.Join(tried, ","); got != "eth0,default interface" {
+		t.Fatalf("tried %s", got)
+	}
+	ok, tried = false, nil
+	if _, err := (MDNS{}).Advertise(context.Background(), 4321, [4]byte{1}); err == nil || !strings.Contains(err.Error(), "eth0: bind failed") {
+		t.Fatalf("err %v", err)
+	}
+}
+
+// TestInterfaceFlags covers which interfaces mDNS and the advertised
+// addresses use: up, with a carrier, multicast capable, not loopback. An
+// unused Docker bridge (up, no carrier) is left out.
+func TestInterfaceFlags(t *testing.T) {
+	up, run, mc, lo := net.FlagUp, net.FlagRunning, net.FlagMulticast, net.FlagLoopback
+	tests := []struct {
+		f             net.Flags
+		carrier, mdns bool
+	}{
+		{up | run | mc | net.FlagBroadcast, true, true}, // a LAN interface
+		{up | mc | net.FlagBroadcast, false, false},     // docker0, NO-CARRIER
+		{run | mc, false, false},                        // down
+		{up | run, true, false},                         // no multicast
+		{up | run | mc | lo, true, false},               // loopback
+	}
+	for i, tc := range tests {
+		if carrierUp(tc.f) != tc.carrier || multicastCapable(tc.f) != tc.mdns {
+			t.Errorf("case %d (%v): carrierUp %v, multicastCapable %v", i, tc.f, carrierUp(tc.f), multicastCapable(tc.f))
+		}
 	}
 }

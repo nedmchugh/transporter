@@ -408,10 +408,11 @@ and compared word for word with the SPDX copy (`spdx/license-list-data`,
   instance name (`transfer-<8 hex>`), an SRV target with the same random
   label (`transfer-<8 hex>.local.`, not the machine's host name, to avoid
   revealing it and to avoid clashing with the system's own mDNS responder),
-  the port, A/AAAA records for the interface addresses, and TXT
-  `tag=<8 hex>` and `v=1`. The sender queries
-  once per second until the 5 s timeout and takes the first answer with its
-  tag (DISC-2).
+  the port, an A or AAAA record for the address, and TXT
+  `tag=<8 hex>` and `v=1`. A receiver with several addresses advertises one
+  such instance per address (D-5b.8). The sender queries once per second
+  until the 5 s timeout and takes an answer with its tag (DISC-2),
+  preferring an address on one of its own subnets.
 - **D-5b.2 Discovery failure is final.** A failed discovery exits 4 with a
   hint to use `--to` (DISC-3) and is not retried. Once a receiver has been
   found, reconnects reuse its address without discovering again, so a lost
@@ -489,6 +490,47 @@ and compared word for word with the SPDX copy (`spdx/license-list-data`,
     probes the real local subnets, which no host answers. A sweep between
     two machines is not tested automatically, and the development
     machine's firewalld blocks inbound UDP 29873 unless it is opened.
+- **D-5b.8 Every interface (found in runtime testing, 2026-11-20).**
+  Senders and receivers on a machine with more than one network did not
+  find each other. Three causes:
+  - *mDNS used one interface.* hashicorp/mdns v1.0.7 joins the multicast
+    group, and sends queries, only on the interface it is given, and with
+    none (as before) the system picks one, normally the one with the
+    default route. A receiver never saw queries arriving on its other
+    networks, and a sender never asked on its other networks. The
+    receiver now runs one responder per interface that is up, running,
+    multicast capable, not loopback and has an address; one that fails
+    only disables that interface, and if all fail one is tried on the
+    system default. The sender queries on each such interface at once in
+    every round, each with its own address-family fallback (D-5b.6), so
+    the timeouts are unchanged. Responders reply by unicast to the query's
+    source, so replies need no interface choice. On Linux every responder
+    socket receives every query (`IP_MULTICAST_ALL`), so a receiver with N
+    interfaces answers each query N times; the sender ignores duplicates.
+  - *The sender got an arbitrary address.* The library keeps one address
+    per host name from an answer, the last A record, so a receiver
+    advertising all its addresses under one name could hand the sender a
+    container or VPN address it cannot reach. Each address is now its own
+    service instance with its own random instance and host name, so the
+    sender sees all of them and picks, in order, an address on one of its
+    own subnets, then any IPv4 address, then IPv6. The records reveal no
+    more than before (random names, the addresses were already in A and
+    AAAA records). A receiver from before this change still works; the
+    sender gets one address from it, as before.
+  - *Unreachable addresses were advertised.* The receiver advertised the
+    addresses of interfaces that are up but have no carrier, such as an
+    unused `docker0`. It now skips them, as the sweep already did.
+  - *The sweep cap was first come, first served.* Targets were taken
+    subnet by subnet, so a few large container or VPN subnets listed
+    before the LAN could use up the 4,096-address cap before the LAN was
+    reached. The subnets now take turns, one address each, so each gets
+    an even share of the cap.
+  - *Verification*: unit tests fake the interfaces and the library calls
+    (several interfaces, one failing, the per-interface fallback, answer
+    ranking, the records, the shared cap). The live tests
+    (`TestAdvertiseAndFind`, `TestE2EDiscovery`) pass on the single-NIC
+    development machine. Discovery between two machines across a second
+    interface is not tested automatically.
 
 ## 6. Dependencies (NFR-5)
 
@@ -499,7 +541,7 @@ and compared word for word with the SPDX copy (`spdx/license-list-data`,
 | lukechampine.com/blake3 | MIT | BLAKE3 required by XFER-1; not in stdlib. |
 | github.com/klauspost/cpuid/v2 | MIT | Required by blake3 for SIMD detection. |
 | github.com/hashicorp/mdns | MIT | mDNS/DNS-SD (DISC-1); not in stdlib. |
-| github.com/miekg/dns | BSD-3-Clause | Required by hashicorp/mdns. |
+| github.com/miekg/dns | BSD-3-Clause | Required by hashicorp/mdns; also imported directly for its `Zone` interface (D-5b.8). |
 | golang.org/x/net | BSD-3-Clause | Required by mdns (multicast sockets). |
 | golang.org/x/text | BSD-3-Clause | NFC normalization and case folding (TREE-9). |
 | golang.org/x/term | BSD-3-Clause | No-echo code prompt and terminal detection (CODE-8, CLI-2). |

@@ -315,7 +315,7 @@ func SweepTargets() []netip.Addr {
 	for _, ifc := range ifaces {
 		// Interfaces that are down or have no carrier (an unused Docker
 		// bridge, for example) are skipped.
-		if ifc.Flags&net.FlagUp == 0 || ifc.Flags&net.FlagRunning == 0 || ifc.Flags&net.FlagLoopback != 0 {
+		if !carrierUp(ifc.Flags) || ifc.Flags&net.FlagLoopback != 0 {
 			continue
 		}
 		addrs, _ := ifc.Addrs()
@@ -344,7 +344,10 @@ func SweepTargets() []netip.Addr {
 
 // sweepTargets expands the local addresses (each with its prefix length)
 // into the addresses to probe, without duplicates or the local addresses
-// themselves, up to maxSweepTargets.
+// themselves, up to maxSweepTargets. The subnets take turns, one address
+// each, so when the cap is reached every subnet has had an even share: a
+// few large subnets listed first (container bridges, a VPN) cannot use up
+// the cap before the LAN is reached.
 func sweepTargets(local []netip.Prefix) []netip.Addr {
 	self := map[netip.Addr]bool{}
 	for _, p := range local {
@@ -353,16 +356,35 @@ func sweepTargets(local []netip.Prefix) []netip.Addr {
 	loop := netip.AddrFrom4([4]byte{127, 0, 0, 1})
 	out := []netip.Addr{loop}
 	seen := map[netip.Addr]bool{loop: true}
+	var lists [][]netip.Addr
 	for _, p := range local {
-		for _, ip := range subnetHosts(p) {
-			if len(out) == maxSweepTargets {
-				return out
-			}
-			if !seen[ip] && !self[ip] {
+		if hosts := subnetHosts(p); len(hosts) > 0 {
+			lists = append(lists, hosts)
+		}
+	}
+	for len(lists) > 0 {
+		left := lists[:0]
+		for _, hosts := range lists {
+			// Take this subnet's next new address; addresses already
+			// taken (from an overlapping subnet) are skipped, not counted.
+			for len(hosts) > 0 {
+				ip := hosts[0]
+				hosts = hosts[1:]
+				if seen[ip] || self[ip] {
+					continue
+				}
+				if len(out) == maxSweepTargets {
+					return out
+				}
 				seen[ip] = true
 				out = append(out, ip)
+				break
+			}
+			if len(hosts) > 0 {
+				left = append(left, hosts)
 			}
 		}
+		lists = left
 	}
 	return out
 }

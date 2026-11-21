@@ -15,8 +15,8 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   overwrite policy with conflicts, and `--verify` content comparison.
 - Automatic reconnect with exponential backoff and full jitter, heartbeats
   and dead-connection detection, session supersession and BUSY handling.
-- mDNS discovery (`_transporter._tcp`) with `--to` as an always-available
-  alternative.
+- mDNS discovery (`_transporter._tcp`) on every network interface, with
+  `--to` as an always-available alternative.
 - A UDP unicast sweep of the local IPv4 subnets (UDP port 29873) that finds
   the receiver when mDNS does not. It is on by default; `--no-sweep` and
   `--sweep-port`, on both send and receive and in the config file, turn it
@@ -27,3 +27,10 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   config directory, or `--config PATH`.
 - Documentation: README, architecture, protocol, security, testing, and the
   decisions log.
+
+### Fixed
+
+- Discovery on machines with more than one network: mDNS advertised and
+  queried on only one interface, the sender could pick an unreachable
+  receiver address (for example a Docker bridge), and large container or
+  VPN subnets could use up the sweep's address cap before the LAN.
