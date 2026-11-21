@@ -322,7 +322,11 @@ func TestPick(t *testing.T) {
 		return &mdns.ServiceEntry{InfoFields: []string{want}, Port: 5000, AddrV6IPAddr: &net.IPAddr{IP: net.ParseIP(ip)}}
 	}
 	other := &mdns.ServiceEntry{InfoFields: []string{"tag=00000000"}, Port: 6000, AddrV4: net.ParseIP("10.5.1.50")}
-	local := []netip.Prefix{netip.MustParsePrefix("10.5.1.0/24"), netip.MustParsePrefix("2001:db8:1::/64")}
+	local := []netip.Prefix{
+		netip.MustParsePrefix("10.5.1.20/24"),
+		netip.MustParsePrefix("172.17.0.1/16"), // the sender's own docker0
+		netip.MustParsePrefix("2001:db8:1::20/64"),
+	}
 	tests := []struct {
 		name    string
 		entries []*mdns.ServiceEntry
@@ -331,6 +335,11 @@ func TestPick(t *testing.T) {
 		{"local after container", []*mdns.ServiceEntry{v4("172.17.0.1"), v4("10.5.1.88")}, "10.5.1.88:5000"},
 		{"local IPv6 over remote IPv4", []*mdns.ServiceEntry{v4("172.17.0.1"), v6("2001:db8:1::5")}, "[2001:db8:1::5]:5000"},
 		{"IPv4 over IPv6", []*mdns.ServiceEntry{v6("2001:db8:2::5"), v4("192.0.2.1")}, "192.0.2.1:5000"},
+		// Both machines run Docker: the receiver's docker0 address is the
+		// sender's own and would connect the sender to itself.
+		{"shared docker0 before LAN", []*mdns.ServiceEntry{v4("172.17.0.1"), v4("10.5.1.88")}, "10.5.1.88:5000"},
+		{"own address after IPv6", []*mdns.ServiceEntry{v4("172.17.0.1"), v6("2001:db8:2::5")}, "[2001:db8:2::5]:5000"},
+		{"same machine", []*mdns.ServiceEntry{v4("172.17.0.1"), v4("10.5.1.20")}, "172.17.0.1:5000"},
 		{"first of equals", []*mdns.ServiceEntry{v4("192.0.2.1"), v4("192.0.2.2")}, "192.0.2.1:5000"},
 		{"other tag on my subnet", []*mdns.ServiceEntry{other, v4("192.0.2.1")}, "192.0.2.1:5000"},
 		{"nothing", []*mdns.ServiceEntry{other, nil}, ""},

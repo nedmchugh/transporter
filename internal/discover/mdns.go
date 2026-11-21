@@ -368,7 +368,8 @@ func (m MDNS) query(ctx context.Context, ifc *net.Interface, mode int, timeout t
 	return r
 }
 
-// localPrefixes returns the subnets of the sender's own addresses.
+// localPrefixes returns the sender's own addresses with their prefix
+// lengths, so they give both the addresses and the subnets.
 func localPrefixes() []netip.Prefix {
 	addrs, _ := net.InterfaceAddrs()
 	var out []netip.Prefix
@@ -385,18 +386,22 @@ func localPrefixes() []netip.Prefix {
 		if ip.Is4In6() && bits == 128 {
 			ones -= 96
 		}
-		out = append(out, netip.PrefixFrom(ip.Unmap(), ones).Masked())
+		out = append(out, netip.PrefixFrom(ip.Unmap(), ones))
 	}
 	return out
 }
 
 // pick chooses among the answers that carry the wanted tag (see match):
 // an address on one of the sender's own subnets (local) first, then any
-// IPv4 address, then IPv6, in the order received otherwise. A receiver
-// answers once per address, and some of them (a VPN or container address)
-// may be unreachable from the sender.
+// IPv4 address, then IPv6, then one of the sender's own addresses, in the
+// order received otherwise. A receiver answers once per address, and some
+// of them (a VPN or container address) may be unreachable from the sender.
+// An address the sender has itself is, on another machine, a per-host
+// bridge such as docker0 (172.17.0.1 on both), and connecting to it
+// reaches the sender; it is only right when both run on one machine, and
+// then every address of the receiver is one of the sender's own.
 func pick(entries []*mdns.ServiceEntry, want string, local []netip.Prefix) (string, bool) {
-	best, bestRank := "", 3
+	best, bestRank := "", 4
 	for _, e := range entries {
 		addr, ok := match(e, want)
 		if !ok {
@@ -406,11 +411,14 @@ func pick(entries []*mdns.ServiceEntry, want string, local []netip.Prefix) (stri
 		if err != nil {
 			continue
 		}
+		ip := ap.Addr()
 		rank := 2
 		switch {
-		case slices.ContainsFunc(local, func(p netip.Prefix) bool { return p.Contains(ap.Addr()) }):
+		case slices.ContainsFunc(local, func(p netip.Prefix) bool { return p.Addr() == ip }):
+			rank = 3
+		case slices.ContainsFunc(local, func(p netip.Prefix) bool { return p.Contains(ip) }):
 			rank = 0
-		case ap.Addr().Is4():
+		case ip.Is4():
 			rank = 1
 		}
 		if rank < bestRank {

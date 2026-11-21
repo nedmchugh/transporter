@@ -513,7 +513,12 @@ and compared word for word with the SPDX copy (`spdx/license-list-data`,
     container or VPN address it cannot reach. Each address is now its own
     service instance with its own random instance and host name, so the
     sender sees all of them and picks, in order, an address on one of its
-    own subnets, then any IPv4 address, then IPv6. The records reveal no
+    own subnets, then any IPv4 address, then IPv6, and last an address the
+    sender has itself. That last rule matters when both machines run
+    Docker: each has `docker0` at 172.17.0.1/16, so the receiver's
+    172.17.0.1 looks like it is on the sender's subnet, but connecting to it
+    reaches the sender. On one machine every receiver address is also the
+    sender's, so the rule changes nothing there. The records reveal no
     more than before (random names, the addresses were already in A and
     AAAA records). A receiver from before this change still works; the
     sender gets one address from it, as before.
