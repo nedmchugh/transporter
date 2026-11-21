@@ -392,7 +392,7 @@ func (c *sconn) handle(ctx context.Context, idx uint32, rec proto.NeedRecord, bu
 	case proto.NeedSkip:
 		set(oSkipped, "")
 		if it.Type == proto.EntryFile {
-			s.opts.Progress.AddBytes(int64(it.Size))
+			s.opts.Progress.AddPresent(int64(it.Size))
 			s.opts.Progress.FileDone()
 		}
 	case proto.NeedConflict:
@@ -413,7 +413,7 @@ func (c *sconn) handle(ctx context.Context, idx uint32, rec proto.NeedRecord, bu
 			}
 			if same {
 				set(oSkipped, "")
-				s.opts.Progress.AddBytes(int64(it.Size))
+				s.opts.Progress.AddPresent(int64(it.Size))
 				s.opts.Progress.FileDone()
 			} else {
 				set(oConflict, "")
@@ -518,7 +518,7 @@ func (c *sconn) sendFile(ctx context.Context, idx uint32, offset uint64, buf []b
 	c.open = true
 	c.mu.Unlock()
 	s.opts.Progress.SetCurrent(it.Path)
-	s.opts.Progress.AddBytes(int64(offset))
+	s.opts.Progress.AddPresent(int64(offset))
 	// Reading exactly the declared size guarantees no more than that is
 	// ever sent (SND-6); memory use is one chunk buffer (SND-4).
 	for pos := offset; pos < it.Size; {

@@ -281,6 +281,7 @@ func (s *sender) attempt(ctx context.Context) (done *proto.Done, progressed bool
 	stop := context.AfterFunc(ctx, func() { _ = link.Close() })
 	defer stop()
 	s.log.Info("connected", "receiver", addr)
+	s.opts.Progress.Restart() // this connection accounts for every file again
 	c := &sconn{s: s, link: link, notify: make(chan struct{}, 1)}
 	done, err = c.run(ctx)
 	return done, c.progressed(), err

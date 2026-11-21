@@ -243,7 +243,7 @@ func (c *conn) readManifest() error {
 func (c *conn) plan(ctx context.Context) error {
 	plans := make([]plan, len(c.entries))
 	failedDirs := map[string]bool{}
-	var needBytes, sendFiles uint64
+	var needBytes, totalBytes, totalFiles uint64
 	for i, e := range c.entries {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -253,13 +253,15 @@ func (c *conn) plan(ctx context.Context) error {
 			return err
 		}
 		plans[i] = p
+		if e.Type == proto.EntryFile {
+			totalBytes += e.Size
+			totalFiles++
+		}
 		switch p.action {
 		case proto.NeedSend:
 			needBytes += e.Size - p.offset
-			sendFiles++
 		case proto.NeedVerifySend:
 			needBytes += e.Size
-			sendFiles++
 		}
 	}
 	if avail := diskFree(c.r.opts.Dest); avail >= 0 && needBytes > uint64(avail) {
@@ -267,7 +269,12 @@ func (c *conn) plan(ctx context.Context) error {
 			fmt.Sprintf("the destination has %s free, but the transfer needs about %s", progress.Bytes(avail), progress.Bytes(int64(needBytes))),
 			"free some space or choose another destination", errNoSpace)
 	}
-	c.prog.SetTotals(int64(sendFiles), int64(needBytes))
+	// Progress covers the whole manifest, as on the sender: files already
+	// complete count as done (below, and in onVerifyResult), so a rerun
+	// shows "5/5 files" rather than "0/0". This connection accounts for
+	// every file again, so earlier connections' counts are dropped.
+	c.prog.Restart()
+	c.prog.SetTotals(int64(totalFiles), int64(totalBytes))
 
 	batch := make([]proto.NeedRecord, 0, proto.MaxNeedRecords)
 	flush := func() error {
@@ -329,6 +336,10 @@ func (c *conn) plan(ctx context.Context) error {
 			fi.st = stSettled
 			if c.sess.outcome[i] != oTransferred {
 				c.sess.set(idx, oSkipped, 0)
+			}
+			if e.Type == proto.EntryFile {
+				c.prog.AddPresent(int64(e.Size))
+				c.prog.FileDone()
 			}
 		case proto.NeedConflict:
 			fi.st = stSettled
@@ -521,7 +532,7 @@ func (c *conn) onFileStart(m proto.FileStart) error {
 	c.open[m.Index] = of
 	c.mu.Unlock()
 	c.prog.SetCurrent(e.Path)
-	c.prog.AddBytes(int64(m.Offset))
+	c.prog.AddPresent(int64(m.Offset))
 	return nil
 }
 
@@ -678,6 +689,8 @@ func (c *conn) onVerifyResult(m proto.VerifyResult) error {
 		if c.sess.outcome[m.Index] != oTransferred {
 			c.sess.set(m.Index, oSkipped, 0)
 		}
+		c.prog.AddPresent(int64(c.entries[m.Index].Size))
+		c.prog.FileDone()
 	} else {
 		c.sess.set(m.Index, oConflict, 0)
 	}
