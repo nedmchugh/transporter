@@ -101,6 +101,8 @@ vuln:
 # note; in CI (CI=true) they are required.
 docs-check:
 	$(GO) run ./tools/reqcheck .
+	@# The newest released CHANGELOG.md section must yield release notes.
+	@scripts/release-notes.sh >/dev/null
 	@# The container gets the repository read-only and no network. SELinux
 	@# labels are disabled for this container rather than relabelling the
 	@# checkout (:Z would change labels on the user's files).
