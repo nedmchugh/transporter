@@ -123,13 +123,21 @@ func TestRerunSkipsEverything(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	h := startReceiver(t, dst, nil)
-	sum, err := runSend(t, h.addr, []string{filepath.Join(src, "t")}, nil)
-	if err != nil || sum.Transferred != 0 || sum.Skipped != 2 {
-		t.Fatalf("summary %+v err %v", sum, err)
-	}
-	if _, err := h.wait(t); err != nil {
-		t.Fatal(err)
+	for _, verify := range []bool{false, true} {
+		sp, rp := trackers()
+		h := startReceiver(t, dst, func(o *recv.Options) { o.Progress = rp })
+		sum, err := runSend(t, h.addr, []string{filepath.Join(src, "t")}, func(o *Options) {
+			o.Progress, o.Verify = sp, verify
+		})
+		if err != nil || sum.Transferred != 0 || sum.Skipped != 2 {
+			t.Fatalf("verify=%v: summary %+v err %v", verify, sum, err)
+		}
+		if _, err := h.wait(t); err != nil {
+			t.Fatal(err)
+		}
+		// The receiver counts the complete files too (it showed 0/0).
+		checkProgress(t, "sender", sp, 2, 2)
+		checkProgress(t, "receiver", rp, 2, 2)
 	}
 	testutil.CompareTrees(t, src, dst, testutil.CompareOptions{Mtime: true})
 }

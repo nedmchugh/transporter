@@ -117,10 +117,12 @@ func TestFaultInjection(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			testutil.CheckLeaks(t)
 			src, dst := faultTree(t, tc.small), t.TempDir()
-			h := startReceiver(t, dst, nil)
+			sp, rp := trackers()
+			h := startReceiver(t, dst, func(o *recv.Options) { o.Progress = rp })
 			dial, attempts := faultDial(tc.policy)
 			start := time.Now()
 			sum, err := runSend(t, h.addr, []string{filepath.Join(src, "t")}, func(o *Options) {
+				o.Progress = sp
 				o.Dial = dial
 				o.RetryTimeout = 20 * time.Second
 				o.Link = proto.LinkConfig{Heartbeat: 100 * time.Millisecond, DeadAfter: time.Second}
@@ -132,6 +134,16 @@ func TestFaultInjection(t *testing.T) {
 				t.Fatal(err)
 			}
 			testutil.CompareTrees(t, src, dst, testutil.CompareOptions{Mtime: true})
+			// Reconnects must not count files or resumed prefixes twice.
+			list := mustWalk(t, filepath.Join(src, "t"))
+			var files int64
+			for _, it := range list.Items {
+				if it.Type == proto.EntryFile {
+					files++
+				}
+			}
+			checkProgress(t, "sender", sp, files, int64(list.TotalBytes))
+			checkProgress(t, "receiver", rp, files, int64(list.TotalBytes))
 			if tc.name != "slow link" && sum.Retries == 0 {
 				t.Fatal("fault did not cause a retry")
 			}

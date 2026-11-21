@@ -61,8 +61,9 @@ func TestResumeFromPart(t *testing.T) {
 		torn[i] = 0xAA
 	}
 	copyPrefix(t, p, filepath.Join(dst, "big.bin.part"), 4*proto.ChunkSize, torn)
-	h := startReceiver(t, dst, nil)
-	sum, err := runSend(t, h.addr, []string{p}, nil)
+	sp, rp := trackers()
+	h := startReceiver(t, dst, func(o *recv.Options) { o.Progress = rp })
+	sum, err := runSend(t, h.addr, []string{p}, func(o *Options) { o.Progress = sp })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,6 +74,8 @@ func TestResumeFromPart(t *testing.T) {
 	if err != nil || rs.Bytes != size-4*proto.ChunkSize {
 		t.Fatalf("receiver %+v %v", rs, err)
 	}
+	checkProgress(t, "sender", sp, 1, size)
+	checkProgress(t, "receiver", rp, 1, size)
 	testutil.CompareTrees(t, src, dst, testutil.CompareOptions{Mtime: true})
 }
 

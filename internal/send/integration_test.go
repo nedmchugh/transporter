@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"net"
 	"os"
@@ -24,6 +25,7 @@ import (
 	"github.com/nedmchugh/transporter/internal/fail"
 	"github.com/nedmchugh/transporter/internal/manifest"
 	"github.com/nedmchugh/transporter/internal/pairing"
+	"github.com/nedmchugh/transporter/internal/progress"
 	"github.com/nedmchugh/transporter/internal/proto"
 	"github.com/nedmchugh/transporter/internal/recv"
 	"github.com/nedmchugh/transporter/internal/testutil"
@@ -317,5 +319,24 @@ func TestWrongCode(t *testing.T) {
 	entries, _ := os.ReadDir(dst)
 	if len(entries) != 0 {
 		t.Fatalf("destination not empty: %v", entries)
+	}
+}
+
+// trackers gives a transfer a progress tracker on each side (without
+// rendering), for tests that check what the progress line shows.
+func trackers() (sender, receiver *progress.Tracker) {
+	return progress.New(io.Discard, false), progress.New(io.Discard, false)
+}
+
+// checkProgress covers CLI-2: after a transfer, a side's progress shows
+// every file and byte of the manifest as done, counting files that were
+// already complete and resumed prefixes once, however many connections
+// it took.
+func checkProgress(t *testing.T, side string, tr *progress.Tracker, files, bytes int64) {
+	t.Helper()
+	s := tr.Snapshot()
+	if s.TotalFiles != files || s.DoneFiles != files || s.TotalBytes != bytes || s.DoneBytes != bytes {
+		t.Errorf("%s progress %d/%d files, %d/%d bytes; want %d/%d files, %d/%d bytes",
+			side, s.DoneFiles, s.TotalFiles, s.DoneBytes, s.TotalBytes, files, files, bytes, bytes)
 	}
 }

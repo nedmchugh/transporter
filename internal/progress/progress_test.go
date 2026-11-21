@@ -11,6 +11,7 @@ package progress
 import (
 	"bytes"
 	"context"
+	"io"
 	"strings"
 	"sync"
 	"testing"
@@ -132,4 +133,47 @@ func TestFormat(t *testing.T) {
 			t.Errorf("Duration(%v) = %q, want %q", d, got, want)
 		}
 	}
+}
+
+// TestAddPresent covers CLI-2: bytes already in place count as done but
+// not toward the rate, so a batch of complete files does not show a huge
+// rate or a wrong ETA.
+func TestAddPresent(t *testing.T) {
+	tr := New(io.Discard, false)
+	tr.SetTotals(3, 3<<30)
+	tr.AddPresent(2 << 30)
+	tr.FileDone()
+	tr.FileDone()
+	time.Sleep(150 * time.Millisecond)
+	tr.AddBytes(1 << 10)
+	s := tr.Snapshot()
+	if s.DoneBytes != 2<<30+1<<10 || s.DoneFiles != 2 {
+		t.Fatalf("done %d bytes, %d files", s.DoneBytes, s.DoneFiles)
+	}
+	if s.Rate > 1<<20 {
+		t.Fatalf("rate %.0f B/s counts the 2 GiB already present", s.Rate)
+	}
+}
+
+// TestRestart covers CLI-2 across reconnects: Restart zeroes the done
+// counts and keeps the totals, so the next connection's accounting is not
+// added to the last one's.
+func TestRestart(t *testing.T) {
+	tr := New(io.Discard, false)
+	tr.SetTotals(2, 1000)
+	tr.AddPresent(400)
+	tr.AddBytes(100)
+	tr.FileDone()
+	tr.Restart()
+	if s := tr.Snapshot(); s.DoneBytes != 0 || s.DoneFiles != 0 || s.TotalBytes != 1000 || s.TotalFiles != 2 {
+		t.Fatalf("after Restart %+v", s)
+	}
+	tr.AddPresent(500)
+	tr.AddBytes(500)
+	if s := tr.Snapshot(); s.DoneBytes != 1000 || s.DoneBytes > s.TotalBytes {
+		t.Fatalf("after second connection %+v", s)
+	}
+	var nilTracker *Tracker
+	nilTracker.AddPresent(1)
+	nilTracker.Restart()
 }

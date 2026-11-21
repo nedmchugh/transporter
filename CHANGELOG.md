@@ -6,6 +6,15 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- The receiver's progress counts files that are already complete, as the
+  sender's does: a rerun shows `5/5 files` instead of `0/0 files`.
+- Progress no longer counts files twice after a reconnect, on either side
+  (it could show several times the transfer size), and bytes already in
+  place (complete files, resumed prefixes) no longer inflate the rate and
+  ETA.
+
 ## [0.1.0] - 2026-11-20
 
 ### Added

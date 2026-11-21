@@ -63,12 +63,42 @@ func (t *Tracker) SetTotals(files, bytes int64) {
 	t.totalBytes.Store(bytes)
 }
 
-// AddBytes records n bytes transferred (or, for resumed and skipped files,
-// accounted for).
+// AddBytes records n bytes transferred.
 func (t *Tracker) AddBytes(n int64) {
 	if t != nil {
 		t.doneBytes.Add(n)
 	}
+}
+
+// AddPresent records n bytes that were already in place: a file skipped as
+// already complete, or the prefix a resumed file continues from. They count
+// as done but not toward the rate, so the rate and ETA reflect bytes that
+// actually move; adding a batch of complete files at once would otherwise
+// show a huge rate.
+func (t *Tracker) AddPresent(n int64) {
+	if t == nil {
+		return
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.doneBytes.Add(n)
+	t.lastDone += n
+}
+
+// Restart zeroes the done counts at the start of a connection. Each
+// connection accounts for every file again (as present, resumed or sent),
+// so without it a reconnect counted files finished on an earlier
+// connection, and resumed prefixes, twice. Totals, the start time and the
+// rate are kept.
+func (t *Tracker) Restart() {
+	if t == nil {
+		return
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.doneBytes.Store(0)
+	t.doneFiles.Store(0)
+	t.lastDone = 0
 }
 
 // FileDone records one finished file.

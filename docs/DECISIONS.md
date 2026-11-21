@@ -396,6 +396,20 @@ and compared word for word with the SPDX copy (`spdx/license-list-data`,
   catches an interrupted transfer of the same tree. A `.part` file left
   by an earlier transfer of a different directory is no longer listed; it
   is still never touched. Requirement RES-4 says so.
+- **D-5.20 Progress accounting (CLI-2, maintainer request, 2026-11-20).**
+  Both sides show the whole manifest: every file and every byte. Files
+  already complete (skipped, or found identical by `--verify`) and the
+  prefix a resumed file continues from count as done when they are
+  decided, through `Tracker.AddPresent`, which leaves them out of the rate
+  so a batch of complete files does not show a huge rate or a wrong ETA.
+  The receiver used to count only what it still needed, so a rerun showed
+  `0 B / 0 B, 0/0 files`. Each connection accounts for every file again,
+  so `Tracker.Restart` zeroes the done counts when a connection starts (on
+  the sender after the handshake, on the receiver before planning);
+  before, a reconnect counted earlier connections' files and resumed
+  prefixes again, and the fault-injection tests showed up to six times
+  the transfer size. Conflicts and errors are not counted as done, so
+  such a run ends below 100%.
 - **D-5.18 Closing after a fatal ERROR (found on the Windows CI runner).**
   When one side rejects the other (for example a manifest entry with
   `..`), the peer's later frames are usually still unread. Closing a TCP
