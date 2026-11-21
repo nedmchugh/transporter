@@ -86,9 +86,13 @@ Other tools (`go-licenses`, `govulncheck`) run at pinned versions through
 2. After it merges, tag the merge commit and push the tag:
    `git tag -a vX.Y.Z -m "transporter vX.Y.Z"` and
    `git push origin vX.Y.Z`.
-3. The release workflow builds a **draft** release whose notes are that
-   changelog section (`scripts/release-notes.sh`). Review the draft and
-   publish it by hand.
+3. The release workflow builds the release, with that changelog section
+   as its notes (`scripts/release-notes.sh`), and publishes it once every
+   step has passed. Pushing the tag is the decision to release; there is
+   no draft to review. A tag with a pre-release suffix (`vX.Y.Z-rc.1`) is
+   published as a pre-release. If the workflow fails, fix the cause and
+   rerun it: a failed run leaves at most a draft, which the rerun
+   replaces.
 
 ## License of contributions
 

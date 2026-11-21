@@ -787,8 +787,22 @@ dependency (and its `testify` dependency tree) for about 60 lines of code.
   notes. A tag
   with no section, or an empty one, fails the release before anything is
   built. `make docs-check` runs the script on the newest released section,
-  so a malformed changelog shows up in CI before a tag is pushed. The
-  release is still a draft (CI-3).
+  so a malformed changelog shows up in CI before a tag is pushed.
+- **D-9.11 Publishing automatically (maintainer decision, 2026-11-20;
+  changes CI-3).** CI-3 required a draft release that the maintainer
+  publishes by hand. For v0.1.0 and v0.1.1 the review was checking the
+  draft's archives and a downloaded binary, and the workflow and
+  `make ci` already check what that review covered, so the maintainer
+  chose to publish automatically. GoReleaser still creates a draft; the
+  workflow publishes it as its last step, after the provenance
+  attestation, so a run that fails at any step leaves at most a draft
+  and never a public release missing archives, notes or attestation.
+  Pre-release tags (`v1.2.0-rc.1`) are published as pre-releases and do
+  not become "latest" (GoReleaser `prerelease: auto` and the publish
+  step agree on "has a `-` suffix"). The safeguard that remains before
+  publishing is the release PR: the tag must be on a merged commit with
+  a dated changelog section, and pushing the tag is the decision to
+  release.
 
 ## 10. Maintainer open items
 
