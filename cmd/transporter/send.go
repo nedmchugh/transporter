@@ -244,8 +244,7 @@ func runSend(ctx context.Context, f *sendFlags, verbose int, env *environment) i
 			return addr, nil
 		}
 	}
-	pctx, stopProg := context.WithCancel(ctx)
-	go prog.Run(pctx, 0)
+	stopProg := startProgress(ctx, prog)
 	sum, runErr := send.Run(ctx, opts)
 	stopProg()
 	printSendSummary(env, sum)

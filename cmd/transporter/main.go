@@ -132,6 +132,24 @@ func newLogger(w io.Writer, verbose int) *slog.Logger {
 	return slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{Level: level}))
 }
 
+// startProgress renders prog until the returned stop is called. stop
+// waits for the renderer to clear its status line, so what is written
+// next (the summary) starts at the beginning of a clean line. Cancelling
+// without waiting let the summary race the clear, and the last status
+// line stayed on screen in front of it ("0/5 filesSummary: ...").
+func startProgress(ctx context.Context, prog *progress.Tracker) (stop func()) {
+	ctx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		prog.Run(ctx, 0)
+	}()
+	return func() {
+		cancel()
+		<-done
+	}
+}
+
 // newProgress returns a tracker for stderr, styled for a terminal or not
 // (CLI-2).
 func newProgress(env *environment) *progress.Tracker {

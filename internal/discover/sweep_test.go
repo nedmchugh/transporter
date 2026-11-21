@@ -186,6 +186,22 @@ func TestSweepTargets(t *testing.T) {
 	if n := len(sweepTargets(many)); n != maxSweepTargets {
 		t.Fatalf("%d targets, want the cap %d", n, maxSweepTargets)
 	}
+	// A LAN listed after subnets that alone exceed the cap is still swept
+	// in full: the subnets share the cap.
+	lan := netip.MustParsePrefix("192.168.50.10/24")
+	capped := sweepTargets(append(slices.Clone(many), lan))
+	if len(capped) != maxSweepTargets {
+		t.Fatalf("%d targets, want the cap %d", len(capped), maxSweepTargets)
+	}
+	inLAN := 0
+	for _, a := range capped {
+		if lan.Masked().Contains(a) {
+			inLAN++
+		}
+	}
+	if inLAN != 253 {
+		t.Fatalf("%d of the LAN's 253 other hosts probed", inLAN)
+	}
 	if len(SweepTargets()) == 0 {
 		t.Fatal("SweepTargets is empty; it always includes 127.0.0.1")
 	}

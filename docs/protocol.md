@@ -341,7 +341,9 @@ or space, `<>:"|?*`, control characters, drive or UNC prefixes).
 - mDNS/DNS-SD service type `_transporter._tcp` in `local.`, with TXT records
   `tag=<8 lowercase hex digits>` and `v=1`. The tag is `HKDF-SHA-256(IKM =
   canonical code, salt = empty, info = "transporter v1 discovery", L = 4)`.
-  The code itself is never advertised.
+  The code itself is never advertised. A receiver with several addresses
+  advertises one service instance per address, each with a random instance
+  and host name and that address alone.
 - UDP unicast sweep (DISC-6 to DISC-9), used only when mDNS finds nothing.
   The receiver listens on UDP port 29873 (`--sweep-port`), IPv4 only. The
   sender sends each target a probe from one unbound UDP socket:

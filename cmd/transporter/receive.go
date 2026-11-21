@@ -160,8 +160,7 @@ func runReceive(ctx context.Context, f *receiveFlags, verbose int, env *environm
 	stopAdv := advertise(ctx, port, pairer.DiscoveryTag(), d, f.bind, log)
 	defer stopAdv()
 
-	pctx, stopProg := context.WithCancel(ctx)
-	go prog.Run(pctx, 0)
+	stopProg := startProgress(ctx, prog)
 	sum, runErr := r.Run(ctx, ln)
 	stopProg()
 	printReceiveSummary(env, sum)

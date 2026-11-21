@@ -10,8 +10,10 @@ package recv
 
 import (
 	"io/fs"
+	"maps"
 	"os"
 	"path"
+	"slices"
 	"sort"
 	"strings"
 
@@ -116,32 +118,50 @@ func (s *session) done() proto.Done {
 // maxStray bounds the stray .part list in the summary.
 const maxStray = 100
 
-// strayParts lists .part files in the destination whose final names are not
-// in the manifest (RES-4). It walks through the root's fs.FS, which never
-// follows symlinks out of the destination, and only reads directory
-// listings.
+// strayParts lists .part files whose final names are not in the manifest
+// (RES-4). It looks in the destination's top level and under each of the
+// manifest's top-level paths, not in the rest of the destination: a
+// receiver run in a home directory would otherwise walk all of it and
+// report other programs' files with the same suffix, such as a browser's
+// partial downloads (docs/DECISIONS.md D-5.19). It reads through the
+// root's fs.FS, which never follows symlinks out of the destination, and
+// only reads directory listings.
 func strayParts(root *os.Root, entries []proto.Entry) []string {
 	files := make(map[string]bool, len(entries))
+	tops := map[string]bool{}
 	for _, e := range entries {
 		if e.Type == proto.EntryFile {
 			files[e.Path] = true
 		}
+		top, _, _ := strings.Cut(e.Path, "/")
+		tops[top] = true
 	}
 	var out []string
-	_ = fs.WalkDir(root.FS(), ".", func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return nil //nolint:nilerr // best effort: skip unreadable directories
+	check := func(p string, d fs.DirEntry) {
+		if len(out) < maxStray && d.Type().IsRegular() && strings.HasSuffix(p, PartSuffix) && path.Base(p) != PartSuffix && !files[strings.TrimSuffix(p, PartSuffix)] {
+			out = append(out, p)
 		}
-		if len(out) >= maxStray {
-			return fs.SkipAll
+	}
+	fsys := root.FS()
+	if top, err := fs.ReadDir(fsys, "."); err == nil {
+		for _, d := range top {
+			check(d.Name(), d)
 		}
-		if d.Type().IsRegular() && strings.HasSuffix(p, ".part") && path.Base(p) != ".part" {
-			if !files[strings.TrimSuffix(p, ".part")] {
-				out = append(out, p)
+	}
+	for _, t := range slices.Sorted(maps.Keys(tops)) {
+		_ = fs.WalkDir(fsys, t, func(p string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return nil //nolint:nilerr // best effort: skip missing or unreadable paths
 			}
-		}
-		return nil
-	})
+			if len(out) >= maxStray {
+				return fs.SkipAll
+			}
+			if p != t { // the top level was checked above
+				check(p, d)
+			}
+			return nil
+		})
+	}
 	sort.Strings(out)
 	return out
 }

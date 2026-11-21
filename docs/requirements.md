@@ -116,7 +116,7 @@ Existing tools fall short for this use: `scp` and `sftp` handle directory trees 
 - RES-1 (MUST): The destination directory is the only persisted state. No separate state files are created.
 - RES-2 (MUST): **Quick check**: a file is considered already complete if its size equals the manifest size and its mtime is within **2 seconds** of the manifest mtime (tolerance for coarse filesystems such as FAT). With `--verify` (on either side, negotiated), the quick check is replaced by a content-hash comparison.
 - RES-3 (MUST): For a partial file, the receiver reports its `.part` size **rounded down to a chunk boundary** (a crash may leave a torn tail), and the transfer resumes from that offset.
-- RES-4 (MUST): `.part` files for paths not in the current manifest are left untouched and mentioned in the final summary. The tool never deletes files it did not create in this run.
+- RES-4 (MUST): `.part` files for paths not in the current manifest are left untouched and mentioned in the final summary. The summary covers the destination's top level and the manifest's top-level paths; the rest of the destination is not scanned. The tool never deletes files it did not create in this run.
 - RES-5 (MUST): If the receiver cannot make a `.part` file for a path (for example the final path exists as a directory, or the reverse), it reports a per-file error rather than failing the whole transfer.
 
 ---
@@ -137,13 +137,13 @@ Existing tools fall short for this use: `scp` and `sftp` handle directory trees 
 ## 8. Discovery
 
 - DISC-1 (MUST): Unless `--no-mdns` is set, the receiver advertises an mDNS/DNS-SD service `_transporter._tcp` containing a TXT record with a **4-byte discovery tag** derived from the code. The code itself is never advertised (CODE-7).
-- DISC-2 (MUST): The sender derives the same tag and connects to the matching receiver, so multiple receivers on one LAN do not conflict.
+- DISC-2 (MUST): The sender derives the same tag and connects to the matching receiver, so multiple receivers on one LAN do not conflict. The receiver advertises, and the sender queries, on every up, running, multicast-capable interface, and of a receiver's addresses the sender prefers one on its own subnets.
 - DISC-3 (MUST): If no matching receiver is found within a timeout (default 5 s for mDNS, then 3 s for the sweep of DISC-7), the sender fails with a message suggesting `--to HOST:PORT`, noting that mDNS is often blocked on guest and corporate networks and that the sweep needs its UDP port open on the receiving machine.
 - DISC-4 (MUST): `--to` always works without mDNS or the sweep and takes precedence over discovery.
 - DISC-5 (MUST): mDNS is isolated behind an interface in `internal/discover` so the library can be replaced. The library is chosen based on maintenance status and license (LIC-3), recorded in `docs/DECISIONS.md`. Tests that need multicast are skipped with a clear message when multicast is unavailable (for example in CI).
 - DISC-6 (MUST): Unless `--no-sweep` is set, the receiver listens on UDP port 29873 (`--sweep-port`) on its `--bind` address, IPv4 only, and answers a sweep probe carrying its discovery tag (DISC-1) with its TCP port. It sends nothing in reply to any other packet, and its reply is shorter than the probe, so it cannot be used to amplify traffic. Failing to listen (for example because the port is in use) is a warning, not an error.
 - DISC-7 (MUST): If mDNS finds no receiver, or is disabled with `--no-mdns`, and `--no-sweep` is not set, the sender sends probes with the discovery tag and a random nonce to the addresses of DISC-8 on the sweep port, in paced rounds, for up to 3 s, and connects to the first receiver that answers with that nonce. The sweep runs only after mDNS has failed, so networks where mDNS works see no sweep traffic.
-- DISC-8 (MUST): The sweep probes 127.0.0.1 (a receiver on the same machine) and every other address of each IPv4 subnet of an up, running, non-loopback interface. A subnet larger than /22 is limited to the /22 that contains the sender's address, and at most 4,096 addresses are probed in all. IPv6 subnets are not swept.
+- DISC-8 (MUST): The sweep probes 127.0.0.1 (a receiver on the same machine) and every other address of each IPv4 subnet of an up, running, non-loopback interface. A subnet larger than /22 is limited to the /22 that contains the sender's address, and at most 4,096 addresses are probed in all, shared evenly among the subnets. IPv6 subnets are not swept.
 - DISC-9 (MUST): `--no-sweep` and `--sweep-port N` exist for both send and receive and as config file keys, so the sweep can be turned off on networks where scanning is unwelcome. `--no-mdns` and `--no-sweep` together require `--to`.
 
 ---
