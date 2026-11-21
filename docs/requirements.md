@@ -285,7 +285,7 @@ GitHub Actions workflows gate pull requests. All jobs below MUST pass for merge.
   - **mod-tidy**: fail if `go mod tidy` or `go mod verify` changes anything.
   - **docs**: Markdown lint and link check (tools pinned).
 - CI-2 (MUST): Separate workflows for CodeQL (Go) and dependency review on PRs.
-- CI-3 (SHOULD): A release workflow triggered by version tags that builds archives and checksums for all platforms (GoReleaser or equivalent), includes license files in the archives, and creates a **draft** release only (never publishes automatically). Build provenance attestation is used if feasible.
+- CI-3 (SHOULD): A release workflow triggered by version tags that builds archives and checksums for all platforms (GoReleaser or equivalent), includes license files in the archives, and publishes the release only after every step has succeeded (until a step fails, the release is at most a draft). Build provenance attestation is used if feasible.
 - CI-4 (MUST): Third-party GitHub Actions are pinned to full commit SHAs **obtained from the actual action repositories** (for example via `gh api` or the releases page), with a version comment. SHAs MUST NOT be invented or recalled from memory. If the implementer cannot verify a SHA in their environment, they MUST pin to the version tag, mark it with a `TODO(pin-sha)` comment, and list it under maintainer open items (Section 17).
 - CI-5 (MUST): Workflows set top-level `permissions: contents: read` and grant additional permissions per job only where required; do not use `pull_request_target`; use `concurrency` to cancel superseded runs; set job timeouts.
 - CI-6 (MUST): `dependabot.yml` for Go modules and GitHub Actions (weekly).

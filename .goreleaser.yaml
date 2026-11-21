@@ -37,9 +37,13 @@ archives:
 checksum:
   name_template: checksums.txt
 
+# The release is created as a draft and published by the last step of
+# release.yml, after the provenance attestation, so a failed run never
+# leaves a public release behind. A rerun replaces its own draft.
 release:
   draft: true
   replace_existing_draft: true
+  prerelease: auto
 
 # Release notes come from CHANGELOG.md (scripts/release-notes.sh, passed
 # with --release-notes by release.yml), not from the commit list. Do not
