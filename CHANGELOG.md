@@ -6,6 +6,8 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-20
+
 ### Added
 
 - `transporter receive` and `transporter send`: encrypted, resumable
@@ -28,15 +30,5 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Documentation: README, architecture, protocol, security, testing, and the
   decisions log.
 
-### Fixed
-
-- Discovery on machines with more than one network: mDNS advertised and
-  queried on only one interface, the sender could pick an unreachable
-  receiver address (for example a Docker bridge), and large container or
-  VPN subnets could use up the sweep's address cap before the LAN.
-- The last progress line no longer stays on screen in front of the
-  summary (`... 0/5 filesSummary: ...`).
-- The receiver's list of stray `.part` files looks only in the
-  destination's top level and under the paths being transferred, so
-  receiving into a home directory no longer walks all of it or lists a
-  browser's partial downloads.
+[Unreleased]: https://github.com/nedmchugh/transporter/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/nedmchugh/transporter/releases/tag/v0.1.0
