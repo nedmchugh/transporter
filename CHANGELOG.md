@@ -6,6 +6,8 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-20
+
 ### Fixed
 
 - The receiver's progress counts files that are already complete, as the
@@ -39,5 +41,6 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Documentation: README, architecture, protocol, security, testing, and the
   decisions log.
 
-[Unreleased]: https://github.com/nedmchugh/transporter/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/nedmchugh/transporter/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/nedmchugh/transporter/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/nedmchugh/transporter/releases/tag/v0.1.0
