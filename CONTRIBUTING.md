@@ -77,6 +77,19 @@ Other tools (`go-licenses`, `govulncheck`) run at pinned versions through
 - Add an entry under "Unreleased" in `CHANGELOG.md` for user-visible
   changes.
 
+## Releasing
+
+1. In a pull request, rename `## [Unreleased]` in `CHANGELOG.md` to
+   `## [X.Y.Z] - YYYY-MM-DD`, add an empty `## [Unreleased]` above it, and
+   update the link references at the end. `make docs-check` checks that
+   the section yields release notes.
+2. After it merges, tag the merge commit and push the tag:
+   `git tag -a vX.Y.Z -m "transporter vX.Y.Z"` and
+   `git push origin vX.Y.Z`.
+3. The release workflow builds a **draft** release whose notes are that
+   changelog section (`scripts/release-notes.sh`). Review the draft and
+   publish it by hand.
+
 ## License of contributions
 
 Transporter is licensed under the Mozilla Public License 2.0. MPL-2.0 is a

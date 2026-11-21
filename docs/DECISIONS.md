@@ -760,6 +760,21 @@ dependency (and its `testify` dependency tree) for about 60 lines of code.
     is broken.
   - *Tests*: the e2e suite points the user config directory at an empty
     directory, so a developer's own config file cannot change results.
+- **D-9.10 Release notes from the changelog (maintainer request,
+  2026-11-20).** GoReleaser's default notes are the commit list since the
+  previous tag. For v0.1.0 that was every commit, CI and header fixes
+  included, and the maintainer replaced it by hand with the changelog
+  section. `scripts/release-notes.sh` now prints a version's
+  `CHANGELOG.md` section, without its heading and with a link to the full
+  changelog at that tag. `release.yml` passes it to GoReleaser with
+  `--release-notes`. GoReleaser's changelog setting stays enabled: in
+  v2.19.0 its changelog step is what reads the `--release-notes` file (and
+  then skips the commit list), so `changelog.disable` would publish empty
+  notes. A tag
+  with no section, or an empty one, fails the release before anything is
+  built. `make docs-check` runs the script on the newest released section,
+  so a malformed changelog shows up in CI before a tag is pushed. The
+  release is still a draft (CI-3).
 
 ## 10. Maintainer open items
 

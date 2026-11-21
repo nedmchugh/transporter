@@ -41,5 +41,10 @@ release:
   draft: true
   replace_existing_draft: true
 
+# Release notes come from CHANGELOG.md (scripts/release-notes.sh, passed
+# with --release-notes by release.yml), not from the commit list. Do not
+# set "disable: true": the changelog step is what reads the
+# --release-notes file, so disabling it publishes empty notes. Given the
+# file, the step uses it and does not build the commit list.
 changelog:
   use: git
