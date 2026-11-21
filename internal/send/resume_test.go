@@ -116,12 +116,21 @@ func TestResumeOversizedPart(t *testing.T) {
 }
 
 // TestStrayPartsUntouched covers RES-4: .part files for paths not in the
-// manifest are left alone and listed in the summary.
+// manifest are left alone and listed in the summary, if they are in the
+// destination's top level or under the manifest's top-level paths. Others,
+// such as a browser's partial downloads when receiving into a home
+// directory, are left alone and not listed (docs/DECISIONS.md D-5.19).
 func TestStrayPartsUntouched(t *testing.T) {
 	testutil.CheckLeaks(t)
 	src, dst := t.TempDir(), t.TempDir()
 	testutil.WriteTree(t, src, map[string]string{"d/a": "a"})
-	testutil.WriteTree(t, dst, map[string]string{"other.part": "keep me", "d/old.part": "keep me too"})
+	testutil.WriteTree(t, dst, map[string]string{
+		"other.part":              "keep me",
+		"d/old.part":              "keep me too",
+		"d/sub/older.part":        "and me",
+		"Downloads/AI77oDhk.part": "a browser's",
+		"Downloads/x/deep.part":   "a browser's",
+	})
 	h := startReceiver(t, dst, nil)
 	if _, err := runSend(t, h.addr, []string{filepath.Join(src, "d")}, nil); err != nil {
 		t.Fatal(err)
@@ -130,10 +139,10 @@ func TestStrayPartsUntouched(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(rs.StrayParts, []string{"d/old.part", "other.part"}) {
+	if !slices.Equal(rs.StrayParts, []string{"d/old.part", "d/sub/older.part", "other.part"}) {
 		t.Fatalf("stray parts %v", rs.StrayParts)
 	}
-	for _, p := range []string{"other.part", "d/old.part"} {
+	for _, p := range []string{"other.part", "d/old.part", "d/sub/older.part", "Downloads/AI77oDhk.part", "Downloads/x/deep.part"} {
 		if _, err := os.Stat(filepath.Join(dst, p)); err != nil {
 			t.Fatalf("%s was removed", p)
 		}

@@ -484,3 +484,35 @@ func TestInterfaceFlags(t *testing.T) {
 		}
 	}
 }
+
+// TestRoutable covers which interfaces mDNS uses: only those with an
+// address a receiver could be reached at. macOS's awdl0 and llw0, and
+// bridge members, have link-local addresses only, or none.
+func TestRoutable(t *testing.T) {
+	ipn := func(cidr string) net.Addr {
+		ip, n, err := net.ParseCIDR(cidr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		n.IP = ip
+		return n
+	}
+	tests := []struct {
+		name  string
+		addrs []net.Addr
+		want  bool
+	}{
+		{"LAN IPv4", []net.Addr{ipn("fe80::1/64"), ipn("10.5.1.189/24")}, true},
+		{"global IPv6 only", []net.Addr{ipn("2001:db8::5/64")}, true},
+		{"awdl0: link-local only", []net.Addr{ipn("fe80::1/64")}, false},
+		{"IPv4 link-local", []net.Addr{ipn("169.254.10.1/16")}, false},
+		{"loopback", []net.Addr{ipn("127.0.0.1/8"), ipn("::1/128")}, false},
+		{"bridge member: none", nil, false},
+		{"not an IPNet", []net.Addr{&net.IPAddr{IP: net.ParseIP("10.0.0.1")}}, false},
+	}
+	for _, tc := range tests {
+		if got := routable(tc.addrs); got != tc.want {
+			t.Errorf("%s: %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}

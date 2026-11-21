@@ -386,6 +386,16 @@ and compared word for word with the SPDX copy (`spdx/license-list-data`,
   manifest invalid, as the spec says, even on case-sensitive filesystems. The
   sender runs the same check before connecting, to fail early with a clear
   message.
+- **D-5.19 Where stray `.part` files are looked for (RES-4, found in
+  runtime testing, 2026-11-20).** The summary's stray `.part` list came from
+  a walk of the whole destination. A receiver run in a home directory
+  walked all of it and listed a browser's partial downloads
+  (`Downloads/*.html.part`, Firefox's suffix too). It now reads the
+  destination's top level, which still catches an interrupted single-file
+  transfer, and walks only under the manifest's top-level paths, which
+  catches an interrupted transfer of the same tree. A `.part` file left
+  by an earlier transfer of a different directory is no longer listed; it
+  is still never touched. Requirement RES-4 says so.
 - **D-5.18 Closing after a fatal ERROR (found on the Windows CI runner).**
   When one side rejects the other (for example a manifest entry with
   `..`), the peer's later frames are usually still unread. Closing a TCP
@@ -522,6 +532,12 @@ and compared word for word with the SPDX copy (`spdx/license-list-data`,
     more than before (random names, the addresses were already in A and
     AAAA records). A receiver from before this change still works; the
     sender gets one address from it, as before.
+  - *Interfaces without a routable address are skipped.* mDNS runs only on
+    interfaces with an address that is not loopback or link-local, the
+    addresses a receiver advertises. In runtime testing on macOS the
+    sender queried on about 13 interfaces, most with link-local addresses
+    only (`awdl0`, `llw0`, bridge members), where no receiver can answer
+    and the library logged an IPv6 failure for each.
   - *Unreachable addresses were advertised.* The receiver advertised the
     addresses of interfaces that are up but have no carrier, such as an
     unused `docker0`. It now skips them, as the sweep already did.

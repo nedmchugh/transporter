@@ -116,7 +116,7 @@ Existing tools fall short for this use: `scp` and `sftp` handle directory trees 
 - RES-1 (MUST): The destination directory is the only persisted state. No separate state files are created.
 - RES-2 (MUST): **Quick check**: a file is considered already complete if its size equals the manifest size and its mtime is within **2 seconds** of the manifest mtime (tolerance for coarse filesystems such as FAT). With `--verify` (on either side, negotiated), the quick check is replaced by a content-hash comparison.
 - RES-3 (MUST): For a partial file, the receiver reports its `.part` size **rounded down to a chunk boundary** (a crash may leave a torn tail), and the transfer resumes from that offset.
-- RES-4 (MUST): `.part` files for paths not in the current manifest are left untouched and mentioned in the final summary. The tool never deletes files it did not create in this run.
+- RES-4 (MUST): `.part` files for paths not in the current manifest are left untouched and mentioned in the final summary. The summary covers the destination's top level and the manifest's top-level paths; the rest of the destination is not scanned. The tool never deletes files it did not create in this run.
 - RES-5 (MUST): If the receiver cannot make a `.part` file for a path (for example the final path exists as a directory, or the reverse), it reports a per-file error rather than failing the whole transfer.
 
 ---

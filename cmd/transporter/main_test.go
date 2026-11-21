@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 
 	"github.com/nedmchugh/transporter/internal/code"
 	"github.com/nedmchugh/transporter/internal/fail"
+	"github.com/nedmchugh/transporter/internal/progress"
 )
 
 const validCode = "abandon-ability-able-about-above-absent-absorb-abstract-absurd"
@@ -318,5 +320,47 @@ func TestPrintError(t *testing.T) {
 	printError(env, fail.New(fail.Auth, "authentication failed", "check the code", errors.New("x")))
 	if !strings.Contains(errb.String(), "error: authentication failed: x") || !strings.Contains(errb.String(), "hint: check the code") {
 		t.Fatal(errb.String())
+	}
+}
+
+// lockedBuffer is a bytes.Buffer safe to read while the tracker writes.
+type lockedBuffer struct {
+	mu sync.Mutex
+	b  bytes.Buffer
+}
+
+func (l *lockedBuffer) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.b.Write(p)
+}
+
+func (l *lockedBuffer) String() string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.b.String()
+}
+
+// TestStartProgressClearsLine covers CLI-2: when stop returns, the status
+// line has been cleared, so the summary written next starts on a clean
+// line instead of after the last progress line.
+func TestStartProgressClearsLine(t *testing.T) {
+	for range 20 { // the old race lost most of the time; repeat to be sure
+		var buf lockedBuffer
+		prog := progress.New(&buf, true)
+		prog.SetTotals(5, 1000)
+		stop := startProgress(context.Background(), prog)
+		deadline := time.Now().Add(5 * time.Second)
+		for !strings.Contains(buf.String(), "files") {
+			if time.Now().After(deadline) {
+				stop()
+				t.Fatal("no status line rendered")
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		stop()
+		if out := buf.String(); !strings.HasSuffix(out, "\r\x1b[K") {
+			t.Fatalf("status line not cleared when stop returned: %q", out)
+		}
 	}
 }

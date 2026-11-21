@@ -34,3 +34,9 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   queried on only one interface, the sender could pick an unreachable
   receiver address (for example a Docker bridge), and large container or
   VPN subnets could use up the sweep's address cap before the LAN.
+- The last progress line no longer stays on screen in front of the
+  summary (`... 0/5 filesSummary: ...`).
+- The receiver's list of stray `.part` files looks only in the
+  destination's top level and under the paths being transferred, so
+  receiving into a home directory no longer walks all of it or lists a
+  browser's partial downloads.

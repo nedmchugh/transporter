@@ -236,7 +236,8 @@ such as skipped symlinks, are listed but do not change the exit code.
 - **Resuming**: just run the same commands again. Completed files are
   recognized by size and modification time (or by hash with `--verify`);
   `NAME.part` files hold partial data and are continued. A `.part` file
-  for a name that is no longer being sent is left alone and listed in the
+  for a name that is no longer being sent is left alone and, if it is in
+  the destination's top level or under a path being sent, listed in the
   summary.
 - **Conflicts**: an existing file that differs is not replaced unless the
   receiver runs with `--overwrite`.

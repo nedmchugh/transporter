@@ -133,7 +133,11 @@ func ifaceName(ifc *net.Interface) string {
 
 // multicastInterfaces returns the interfaces mDNS runs on: up, running
 // (with a carrier, so an unused Docker bridge is left out), multicast
-// capable, not loopback, and with at least one address. Loopback is not
+// capable, not loopback, and with an address a receiver could be reached
+// at (see routable). Interfaces with only link-local addresses, such as
+// macOS's awdl0 and llw0 or a bridge member, are left out: the receiver
+// does not advertise link-local addresses, so querying there finds nothing
+// (found in runtime testing on macOS, which has a dozen such). Loopback is not
 // needed for a receiver on the same machine, because multicast sent on an
 // interface is looped back to local listeners. It is a variable so tests
 // can choose the interfaces.
@@ -145,7 +149,7 @@ var multicastInterfaces = func() []*net.Interface {
 		if !multicastCapable(ifc.Flags) {
 			continue
 		}
-		if addrs, err := ifc.Addrs(); err != nil || len(addrs) == 0 {
+		if addrs, err := ifc.Addrs(); err != nil || !routable(addrs) {
 			continue
 		}
 		out = append(out, ifc)
@@ -157,6 +161,18 @@ var multicastInterfaces = func() []*net.Interface {
 // mDNS for multicastInterfaces.
 func multicastCapable(f net.Flags) bool {
 	return carrierUp(f) && f&net.FlagMulticast != 0 && f&net.FlagLoopback == 0
+}
+
+// routable reports whether addrs has an address a receiver could be
+// reached at: unicast, not loopback and not link-local, the addresses
+// advertisedIPs advertises.
+func routable(addrs []net.Addr) bool {
+	for _, a := range addrs {
+		if ipn, ok := a.(*net.IPNet); ok && ipn.IP.IsGlobalUnicast() && !ipn.IP.IsLinkLocalUnicast() {
+			return true
+		}
+	}
+	return false
 }
 
 // carrierUp reports whether an interface with flags f is up and running:
