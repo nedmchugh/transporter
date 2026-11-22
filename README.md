@@ -109,7 +109,8 @@ To uninstall, remove the file: `sudo rm /usr/local/bin/transporter`.
 
    The sender finds the receiver on the local network with mDNS, or, if
    mDNS is blocked, by sending a small UDP probe to every address on its
-   subnet. If neither works, add `--to` with an address the receiver
+   subnet ([Finding the receiver](#finding-the-receiver) has the
+   details). If neither works, add `--to` with an address the receiver
    printed:
 
    ```console
@@ -148,6 +149,131 @@ transporter send --verify CODE ./project
 transporter receive --idle-timeout 0 ./dest
 transporter send --retry-timeout 1m CODE ./project
 ```
+
+## Finding the receiver
+
+The sender does not need the receiver's address: the code is enough. From
+the code, both sides derive a short **discovery tag** (4 bytes; the code
+itself is never sent). The receiver announces that tag, and the sender
+looks for it in up to three ways, in order:
+
+1. **mDNS** (up to 5 s): the receiver advertises a `_transporter._tcp`
+   service on every multicast-capable interface, and the sender asks for
+   it. This is how most home networks find the receiver.
+2. **UDP sweep** (up to 3 s, only if mDNS found nothing): the sender sends
+   a small UDP probe to port 29873 on every address of its own IPv4
+   subnets, and to `127.0.0.1`. Only a receiver with the same tag answers.
+   This helps on networks that drop multicast but pass unicast, such as
+   some Wi-Fi and switched networks.
+3. **`--to HOST:PORT`**, given by you: skips discovery entirely. Use it
+   when both of the above are blocked, or the receiver is on another
+   subnet.
+
+Discovery runs once, at the start. After that the sender reconnects to the
+same address, so a transfer in progress does not depend on mDNS. Because
+the sender looks for its own tag, several receivers can run on one network
+at the same time: each sender finds the receiver whose code it was given.
+
+### Seeing what discovery does
+
+Discovery is silent unless something goes wrong. Add `-v` to the sender to
+see which receiver it found (log lines go to stderr):
+
+```console
+sender$ transporter send -v CODE ./photos
+time=2026-11-21T19:37:31.490-08:00 level=INFO msg="found receiver" addr=192.168.1.20:44093
+time=2026-11-21T19:37:31.493-08:00 level=INFO msg=connected receiver=192.168.1.20:44093
+Summary: 1 file(s) sent (6 B), 0 already complete, 0 conflict(s), 0 error(s), 0 integrity failure(s), 0 retries, 0:01 elapsed
+```
+
+When mDNS is blocked, the sender waits out its 5 s and then sweeps:
+
+```console
+sender$ transporter send -v CODE ./photos
+time=2026-11-21T19:37:43.849-08:00 level=INFO msg="mDNS found no receiver; sweeping the local network" udp-port=29873
+time=2026-11-21T19:37:43.852-08:00 level=INFO msg="found receiver" addr=192.168.1.20:38369
+...
+```
+
+When nothing answers within 8 s (5 s of mDNS and 3 s of sweep), the
+sender exits with code 4 and says what to try. Nothing has been sent, and
+the receiver keeps waiting, so you can rerun with `--to`:
+
+```text
+transporter: error: could not find the receiver on the local network within 8s: mDNS: no answer; UDP sweep: no answer
+transporter: hint: use --to HOST:PORT with an address the receiver printed; mDNS is often blocked on guest and corporate networks; the UDP sweep needs UDP port 29873 open on the receiving machine and only reaches the local subnet
+```
+
+### Discovery recipes
+
+```console
+# mDNS never works on this network: go straight to the sweep (saves 5 s)
+transporter send --no-mdns CODE ./photos
+
+# Scanning is unwelcome here: use mDNS only, never sweep
+transporter receive --no-sweep ~/incoming
+transporter send --no-sweep CODE ./photos
+
+# Port 29873 is taken or blocked: use another sweep port on both sides
+transporter receive --sweep-port 40000 ~/incoming
+transporter send --sweep-port 40000 CODE ./photos
+
+# No discovery at all: the receiver announces nothing, and the sender
+# uses an address the receiver printed (--to always skips discovery)
+transporter receive --no-mdns --no-sweep ~/incoming
+transporter send --to 192.168.1.20:41853 CODE ./photos
+
+# Receiver and sender on the same machine: the sweep always probes
+# 127.0.0.1, so this works even without mDNS
+transporter send --no-mdns CODE ./photos
+```
+
+To make one of these the default, put the keys in the config file (see
+[Config file](#config-file)), for example `no-sweep: true` under `send:`
+and `receive:`.
+
+### Firewalls
+
+The receiving machine must accept these inbound connections:
+
+| What | Protocol and port | Needed for |
+| --- | --- | --- |
+| The transfer | TCP, the port printed after `Listening on` (random unless you set `--port`) | Always |
+| mDNS | UDP 5353 (multicast) | Discovery with mDNS |
+| Sweep | UDP 29873 (or `--sweep-port`) | Discovery with the sweep |
+
+For example, with a fixed transfer port of 4000:
+
+```console
+# firewalld (Fedora, RHEL)
+sudo firewall-cmd --add-service=mdns --add-port=29873/udp --add-port=4000/tcp
+
+# ufw (Ubuntu)
+sudo ufw allow mdns && sudo ufw allow 29873/udp && sudo ufw allow 4000/tcp
+
+receiver$ transporter receive --port 4000 ~/incoming
+```
+
+The firewalld rules last until the next reload; add `--permanent` (and run
+`sudo firewall-cmd --reload`) to keep them. Open only the ones you use:
+with `--to`, only the TCP port is needed.
+
+### Limits
+
+- Discovery reaches the local network only. mDNS does not cross routers,
+  and the sweep covers the sender's own subnets (at most the /22 around
+  its address, 4,096 addresses in all). For a receiver on another subnet
+  or over a VPN, use `--to`.
+- The sweep is IPv4 only. mDNS covers IPv6, and `--to` accepts
+  `[IPv6]:PORT`.
+- Only one receiver per machine can answer the sweep, because it needs the
+  fixed UDP port. A second receiver on the same machine warns
+  `cannot answer the UDP sweep; senders must use mDNS or --to` and can
+  still be found with mDNS, or reached with `--to`.
+- Discovery answers are not trusted: a spoofed answer can only point the
+  sender at a machine that cannot complete the encrypted handshake, which
+  then fails as an authentication error. See
+  [docs/security.md](docs/security.md).
 
 ## Receiver output
 
@@ -259,7 +385,9 @@ such as skipped symlinks, are listed but do not change the exit code.
   open on the receiving machine and both machines on the same subnet. Otherwise, use
   `--to HOST:PORT` with an address the receiver printed. On networks where
   scanning is unwelcome, turn the sweep off with `--no-sweep` or
-  `no-sweep: true` in the config file.
+  `no-sweep: true` in the config file. See
+  [Finding the receiver](#finding-the-receiver) for examples and the
+  firewall ports.
 - **The sender cannot connect (connection refused or timed out)**: check
   the address and port, that both machines are on the same network, and
   that a firewall allows inbound TCP to the receiver's port. Use `--port`

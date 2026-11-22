@@ -6,6 +6,12 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- README section "Finding the receiver": how mDNS, the UDP sweep and
+  `--to` are tried, with example output, recipes for the discovery flags,
+  the firewall ports to open, and the limits.
+
 ## [0.2.0] - 2026-11-21
 
 ### Added
