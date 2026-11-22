@@ -4,3 +4,5 @@
 /coverage.html
 *.test
 /obsolete/
+# JetBrains IDE project settings
+/.idea/
