@@ -27,6 +27,7 @@ Other tools (`go-licenses`, `govulncheck`) run at pinned versions through
 | --- | --- |
 | `build` | Build `bin/transporter`. |
 | `docker-build` | Build every platform inside Docker into `dist/docker/` (needs only Docker). |
+| `install` | Build for this machine in Docker and install `/usr/local/bin/transporter` (`scripts/install.sh`; sudo for the copy only). |
 | `build-cross` | Cross-compile and vet for linux, darwin and windows on amd64 and arm64. |
 | `test` / `test-short` | Unit and integration tests with `-race -shuffle=on`. |
 | `cover` | Tests with coverage; fails below 85% of `internal/...`. |

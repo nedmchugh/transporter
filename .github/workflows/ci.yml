@@ -142,6 +142,47 @@ jobs:
           test "$(ls transporter-* | wc -l)" -eq 6
           ./transporter-linux-amd64 --version
 
+  install:
+    # Keeps scripts/install.sh working: it installs /usr/local/bin/transporter
+    # for real (the runners have passwordless sudo) and must use root for the
+    # copy only. Docker is not available on the macOS runners, so macOS runs
+    # the local build only.
+    name: install (${{ matrix.os }}, ${{ matrix.mode }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, mode: docker }
+          - { os: ubuntu-latest, mode: local }
+          - { os: macos-latest, mode: local }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - if: matrix.mode == 'local'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_LATEST }}
+      - name: Refuse to run under sudo
+        run: |
+          if sudo -E env "PATH=$PATH" scripts/install.sh --${{ matrix.mode }}; then
+            echo "install.sh ran under sudo"; exit 1
+          fi
+          test ! -e /usr/local/bin/transporter
+          test ! -e bin && test ! -e dist
+      - name: Install
+        run: scripts/install.sh --${{ matrix.mode }}
+      - name: Check the installed binary
+        run: |
+          set -x
+          /usr/local/bin/transporter --version
+          test -n "$(find /usr/local/bin/transporter -user root)"
+          test -x /usr/local/bin/transporter
+          # The build ran as the runner user: no root-owned build output.
+          test -z "$(find bin dist -user root 2>/dev/null)"
+      - name: Install again over the existing binary
+        run: scripts/install.sh --${{ matrix.mode }}
+
   mod-tidy:
     runs-on: ubuntu-latest
     timeout-minutes: 10
