@@ -679,7 +679,7 @@ dependency (and its `testify` dependency tree) for about 60 lines of code.
   copyright holder is Ned McHugh, stated once in the README's License
   section ("Copyright © 2026 Ned McHugh"; 2026 is the year of the first
   commit). `LICENSE` stays the verbatim MPL-2.0 text (LIC-1). At the
-  maintainer's request, every `.go` file (and the one shell script) also
+  maintainer's request, every `.go` file (and the shell scripts) also
   carries `Copyright 2026 Ned McHugh`, as permitted by MPL-2.0 Exhibit A.
   The line comes directly after the LIC-2 block, so files still begin with
   exactly that block; `tools/spdxcheck` requires both. It uses a fixed year
@@ -789,6 +789,30 @@ dependency (and its `testify` dependency tree) for about 60 lines of code.
   built. `make docs-check` runs the script on the newest released section,
   so a malformed changelog shows up in CI before a tag is pushed. The
   release is still a draft (CI-3).
+- **D-9.12 Install script (maintainer request, 2026-11-21).**
+  `scripts/install.sh` (also `make install`) builds the binary for the
+  host's OS and architecture and installs it as
+  `/usr/local/bin/transporter`. Choices:
+  - Linux and macOS on amd64 and arm64 only; Windows has no
+    `/usr/local/bin`, so the script exits with a pointer to
+    `scripts/docker-build.sh`. The target path is fixed, as requested.
+  - The Docker build (D-9.7) is the default; `--local` runs `make build`
+    with `GOOS`/`GOARCH` set to the host, so a stray `GOOS` in the
+    environment cannot install a binary for another platform. The Docker
+    binary is checked against `SHA256SUMS`, and either binary must run
+    (`--version`) before it is installed.
+  - Root is checked before the build (`sudo -v`, else `doas true`), so a
+    user without it finds out before waiting for a build. Only `mkdir -p`
+    and `install -m 0755` run elevated. Invoked under sudo or doas
+    (`SUDO_USER`/`DOAS_USER` set) the script refuses, since the build would
+    run as root and leave root-owned files in the checkout; a plain root
+    shell runs everything without elevation.
+  - An `install` CI job runs the script for real on runners with
+    passwordless sudo: the Docker build on Ubuntu, and the local build on
+    Ubuntu and macOS (the macOS runners have no Docker). It checks that a
+    run under sudo is refused before building, that the installed binary
+    is root-owned and runs, that no build output is root-owned, and that a
+    second run replaces the installed binary.
 
 ## 10. Maintainer open items
 

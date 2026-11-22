@@ -55,6 +55,42 @@ and `THIRD_PARTY_LICENSES`), then names the one for your machine, such as
 different output directory. The script needs a POSIX shell, so on Windows
 run it from Git Bash or WSL.
 
+### Install script (Linux and macOS)
+
+In a checkout, run as your normal user (not with `sudo`):
+
+```console
+scripts/install.sh            # build in Docker (default)
+scripts/install.sh --local    # build with Go and make on this machine
+```
+
+The script builds the binary for this machine's OS and architecture
+(amd64 or arm64) and installs it as `/usr/local/bin/transporter`.
+`make install` runs it with the defaults.
+
+- **Root is used only for the copy.** Before building, the script checks
+  that it can get root: it runs `sudo -v` (or `doas true` where `sudo` is
+  not installed), which may ask for your password. If that fails, it stops
+  before building anything. The build then runs as you, and only the final
+  `mkdir -p /usr/local/bin` and `install -m 0755` run through `sudo`. Run
+  with `sudo`, the script refuses, because the build would run as root
+  too; in a plain root shell (for example a container) it needs no
+  elevation.
+- **Docker build (default):** needs only a Docker engine that your user
+  can reach. It runs `scripts/docker-build.sh`, which builds every
+  platform into `dist/docker/`, and checks the binary for this machine
+  against `dist/docker/SHA256SUMS`.
+- **Local build (`--local`):** needs Go 1.26 or newer and `make`. It runs
+  `make build` with `GOOS` and `GOARCH` set to this machine, producing
+  `bin/transporter`.
+- Before installing, the script runs the new binary with `--version`, and
+  afterwards prints the installed version. Running it again replaces the
+  installed binary.
+- `DOCKER` and `GO` select other commands; `VERSION` overrides the
+  version stamped into the binary.
+
+To uninstall, remove the file: `sudo rm /usr/local/bin/transporter`.
+
 ## Quick start
 
 1. On the machine that should **receive** files:

@@ -6,6 +6,14 @@ the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/install.sh` (also `make install`) builds Transporter for this
+  machine's OS and architecture, in Docker by default or with the local Go
+  toolchain (`--local`), and installs it as `/usr/local/bin/transporter`.
+  It checks for root (sudo or doas) before building and uses it only for
+  the copy.
+
 ## [0.1.1] - 2026-11-20
 
 ### Fixed

@@ -25,6 +25,9 @@ in sync with job names in `.github/workflows/`.
 | ci | `license` |
 | ci | `build` |
 | ci | `docker-build` |
+| ci | `install (ubuntu-latest, docker)` |
+| ci | `install (ubuntu-latest, local)` |
+| ci | `install (macos-latest, local)` |
 | ci | `mod-tidy` |
 | ci | `docs` |
 | codeql | `codeql` |
@@ -81,6 +84,9 @@ gh api -X PUT repos/nedmchugh/transporter/branches/main/protection \
       {"context": "license"},
       {"context": "build"},
       {"context": "docker-build"},
+      {"context": "install (ubuntu-latest, docker)"},
+      {"context": "install (ubuntu-latest, local)"},
+      {"context": "install (macos-latest, local)"},
       {"context": "mod-tidy"},
       {"context": "docs"},
       {"context": "codeql"},
